@@ -8,6 +8,12 @@ AirDig is a cloud observability platform built on a unified graph-based data mod
 
 ## System Architecture
 
+> 📊 **Interactive Diagrams:** See [detailed architecture diagrams](./diagrams/) for Mermaid-based visualizations.
+
+### High-Level Architecture
+
+For a complete interactive diagram, see [System Architecture Diagram](./diagrams/system-architecture.md).
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                      AirDig UI (Next.js)                     │
@@ -50,6 +56,13 @@ AirDig is a cloud observability platform built on a unified graph-based data mod
 │  └──────────┴──────────┴──────────┴──────────┴──────────┘  │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+### Architecture Diagrams
+
+- 📊 [System Architecture](./diagrams/system-architecture.md) - Complete system overview with all components
+- 🔄 [Data Flow](./diagrams/data-flow.md) - Event-driven architecture and data pipelines
+- 🟦 [SkyGraph Architecture](./diagrams/skygraph-architecture.md) - Cloud scanning and graph building internals
+- 🚀 [Deployment Architecture](./diagrams/deployment-architecture.md) - Kubernetes and Docker Compose deployments
 
 ---
 
