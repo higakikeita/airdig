@@ -3,6 +3,8 @@
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)
 ![Status](https://img.shields.io/badge/status-alpha-orange.svg)
 
+English | [日本語](./README.ja.md)
+
 **AirDig** is a next-generation cloud observability and drift intelligence platform that visualizes your entire cloud infrastructure from the sky to the core.
 
 Inspired by the deep visibility of **Sysdig** and the runtime security of **Falco**, AirDig extends observability beyond the OS layer into the cloud, application, and infrastructure layers.
