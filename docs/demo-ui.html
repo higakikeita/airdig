@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AirDig SkyGraph - Demo UI</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+    <script src="https://unpkg.com/layout-base/layout-base.js"></script>
+    <script src="https://unpkg.com/cose-base/cose-base.js"></script>
+    <script src="https://unpkg.com/cytoscape-fcose/cytoscape-fcose.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #f5f7fa;
+        }
+
+        .header {
+            background: #1e293b;
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .header .subtitle {
+            font-size: 0.875rem;
+            color: #94a3b8;
+        }
+
+        .tabs {
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 0 2rem;
+            display: flex;
+            gap: 2rem;
+        }
+
+        .tab {
+            padding: 1rem 0;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            color: #64748b;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            color: #0ea5e9;
+            border-bottom-color: #0ea5e9;
+        }
+
+        .tab:hover {
+            color: #0ea5e9;
+        }
+
+        .container {
+            display: flex;
+            height: calc(100vh - 120px);
+        }
+
+        .sidebar {
+            width: 250px;
+            background: white;
+            border-right: 1px solid #e2e8f0;
+            padding: 1.5rem;
+            overflow-y: auto;
+        }
+
+        .sidebar h3 {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .filter-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .filter-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            cursor: pointer;
+            border-radius: 0.375rem;
+            transition: background 0.2s;
+        }
+
+        .filter-item:hover {
+            background: #f1f5f9;
+        }
+
+        .filter-item input[type="checkbox"] {
+            cursor: pointer;
+        }
+
+        .filter-item label {
+            cursor: pointer;
+            flex: 1;
+        }
+
+        .main-content {
+            flex: 1;
+            position: relative;
+        }
+
+        #cy {
+            width: 100%;
+            height: 100%;
+            background: #ffffff;
+        }
+
+        .inspector {
+            width: 320px;
+            background: white;
+            border-left: 1px solid #e2e8f0;
+            padding: 1.5rem;
+            overflow-y: auto;
+        }
+
+        .inspector h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 1rem;
+        }
+
+        .inspector .section {
+            margin-bottom: 1.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .inspector .section:last-child {
+            border-bottom: none;
+        }
+
+        .inspector .label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+
+        .inspector .value {
+            font-size: 0.875rem;
+            color: #1e293b;
+            margin-bottom: 0.75rem;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .status-badge.healthy {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status-badge.warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-badge.critical {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .metric-bar {
+            background: #f1f5f9;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 0.25rem;
+        }
+
+        .metric-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #0ea5e9, #06b6d4);
+            transition: width 0.3s;
+        }
+
+        .metric-bar-fill.warning {
+            background: linear-gradient(90deg, #f59e0b, #f97316);
+        }
+
+        .metric-bar-fill.critical {
+            background: linear-gradient(90deg, #ef4444, #dc2626);
+        }
+
+        .event-item {
+            display: flex;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            background: #f8fafc;
+            border-radius: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .event-icon {
+            font-size: 1.25rem;
+        }
+
+        .event-content {
+            flex: 1;
+        }
+
+        .event-title {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #1e293b;
+        }
+
+        .event-time {
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+
+        .controls {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            display: flex;
+            gap: 0.5rem;
+            z-index: 1000;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+        }
+
+        .legend {
+            position: absolute;
+            bottom: 1rem;
+            left: 1rem;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .legend-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 0.5rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-bottom: 0.25rem;
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1>AirDig</h1>
+            <div class="subtitle">Cloud Observability Platform</div>
+        </div>
+        <div>👤 User</div>
+    </div>
+
+    <div class="tabs">
+        <div class="tab active">SkyGraph</div>
+        <div class="tab">DeepDrift</div>
+        <div class="tab">TraceCore</div>
+        <div class="tab">PulseSight</div>
+        <div class="tab">Unified View</div>
+    </div>
+
+    <div class="container">
+        <div class="sidebar">
+            <div class="filter-group">
+                <h3>Resource Types</h3>
+                <div class="filter-item">
+                    <input type="checkbox" id="vpc" checked>
+                    <label for="vpc">VPC</label>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="subnet" checked>
+                    <label for="subnet">Subnet</label>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="sg" checked>
+                    <label for="sg">Security Group</label>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="ec2" checked>
+                    <label for="ec2">EC2</label>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="rds" checked>
+                    <label for="rds">RDS</label>
+                </div>
+            </div>
+
+            <div class="filter-group">
+                <h3>Health Status</h3>
+                <div class="filter-item">
+                    <input type="checkbox" id="healthy" checked>
+                    <label for="healthy">🟢 Healthy (15)</label>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="warning" checked>
+                    <label for="warning">🟡 Warning (3)</label>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="critical" checked>
+                    <label for="critical">🔴 Critical (1)</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="controls">
+                <button class="btn">🔍 Zoom In</button>
+                <button class="btn">🔎 Zoom Out</button>
+                <button class="btn">⟲ Reset View</button>
+                <button class="btn">📷 Export PNG</button>
+            </div>
+
+            <div id="cy"></div>
+
+            <div class="legend">
+                <div class="legend-title">Legend</div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #1976d2;"></div>
+                    <span>VPC</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #fbc02d;"></div>
+                    <span>Subnet</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #7b1fa2;"></div>
+                    <span>Security Group</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #388e3c;"></div>
+                    <span>EC2</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #f57c00;"></div>
+                    <span>RDS</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="inspector">
+            <h3>Resource Details</h3>
+
+            <div class="section">
+                <div class="label">Resource</div>
+                <div class="value" style="font-size: 1.125rem; font-weight: 600;">web-server-1</div>
+                <div class="value" style="font-size: 0.75rem; color: #64748b;">aws:ec2:i-0abc123def456</div>
+            </div>
+
+            <div class="section">
+                <div class="label">Type & Status</div>
+                <div class="value">Instance Type: t3.large</div>
+                <div class="value">
+                    <span class="status-badge warning">
+                        <span>⚠️</span>
+                        <span>Warning</span>
+                    </span>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="label">Health Metrics</div>
+                <div class="value">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                        <span style="font-size: 0.875rem;">CPU Usage</span>
+                        <span style="font-size: 0.875rem; font-weight: 600;">75%</span>
+                    </div>
+                    <div class="metric-bar">
+                        <div class="metric-bar-fill warning" style="width: 75%;"></div>
+                    </div>
+                </div>
+                <div class="value">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                        <span style="font-size: 0.875rem;">Memory Usage</span>
+                        <span style="font-size: 0.875rem; font-weight: 600;">60%</span>
+                    </div>
+                    <div class="metric-bar">
+                        <div class="metric-bar-fill" style="width: 60%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="label">Drift Events</div>
+                <div class="event-item">
+                    <div class="event-icon">⚠️</div>
+                    <div class="event-content">
+                        <div class="event-title">Security Group modified</div>
+                        <div class="event-time">5 minutes ago</div>
+                    </div>
+                </div>
+                <div class="event-item">
+                    <div class="event-icon">📝</div>
+                    <div class="event-content">
+                        <div class="event-title">Instance type changed</div>
+                        <div class="event-time">2 hours ago</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <div class="label">Connected Services</div>
+                <div class="value">• api (TraceCore)</div>
+                <div class="value">• worker (TraceCore)</div>
+                <div class="value">→ rds-prod-01</div>
+            </div>
+
+            <div class="section">
+                <div class="label">Tags</div>
+                <div class="value">Environment: production</div>
+                <div class="value">Team: platform</div>
+                <div class="value">CostCenter: eng-001</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Cytoscape グラフの初期化
+        const cy = cytoscape({
+            container: document.getElementById('cy'),
+
+            elements: [
+                // ノード
+                { data: { id: 'vpc-1', label: 'VPC-production\n10.0.0.0/16', type: 'vpc', health: 'healthy' } },
+
+                { data: { id: 'subnet-1', label: 'Subnet-1a\n10.0.1.0/24', type: 'subnet', health: 'healthy' } },
+                { data: { id: 'subnet-2', label: 'Subnet-1b\n10.0.2.0/24', type: 'subnet', health: 'healthy' } },
+
+                { data: { id: 'sg-1', label: 'web-sg', type: 'sg', health: 'warning' } },
+
+                { data: { id: 'ec2-1', label: 'web-server-1\nt3.large', type: 'ec2', health: 'warning' } },
+                { data: { id: 'ec2-2', label: 'api-server-1\nt3.medium', type: 'ec2', health: 'healthy' } },
+                { data: { id: 'ec2-3', label: 'worker-1\nt3.small', type: 'ec2', health: 'healthy' } },
+
+                { data: { id: 'rds-1', label: 'postgres-prod\ndb.t3.medium', type: 'rds', health: 'healthy' } },
+
+                // エッジ
+                { data: { source: 'vpc-1', target: 'subnet-1', type: 'ownership' } },
+                { data: { source: 'vpc-1', target: 'subnet-2', type: 'ownership' } },
+
+                { data: { source: 'subnet-1', target: 'ec2-1', type: 'network' } },
+                { data: { source: 'subnet-1', target: 'ec2-2', type: 'network' } },
+                { data: { source: 'subnet-2', target: 'ec2-3', type: 'network' } },
+
+                { data: { source: 'sg-1', target: 'ec2-1', type: 'network' } },
+                { data: { source: 'sg-1', target: 'ec2-2', type: 'network' } },
+
+                { data: { source: 'ec2-1', target: 'rds-1', type: 'dependency' } },
+                { data: { source: 'ec2-2', target: 'rds-1', type: 'dependency' } },
+                { data: { source: 'ec2-3', target: 'rds-1', type: 'dependency' } }
+            ],
+
+            style: [
+                {
+                    selector: 'node',
+                    style: {
+                        'label': 'data(label)',
+                        'text-valign': 'center',
+                        'text-halign': 'center',
+                        'text-wrap': 'wrap',
+                        'text-max-width': '80px',
+                        'font-size': '12px',
+                        'width': 80,
+                        'height': 80,
+                        'border-width': 3,
+                        'border-color': '#cbd5e1'
+                    }
+                },
+                {
+                    selector: 'node[type="vpc"]',
+                    style: {
+                        'background-color': '#1976d2',
+                        'shape': 'round-rectangle'
+                    }
+                },
+                {
+                    selector: 'node[type="subnet"]',
+                    style: {
+                        'background-color': '#fbc02d',
+                        'shape': 'round-rectangle'
+                    }
+                },
+                {
+                    selector: 'node[type="sg"]',
+                    style: {
+                        'background-color': '#7b1fa2',
+                        'shape': 'round-diamond'
+                    }
+                },
+                {
+                    selector: 'node[type="ec2"]',
+                    style: {
+                        'background-color': '#388e3c',
+                        'shape': 'ellipse'
+                    }
+                },
+                {
+                    selector: 'node[type="rds"]',
+                    style: {
+                        'background-color': '#f57c00',
+                        'shape': 'round-rectangle'
+                    }
+                },
+                {
+                    selector: 'node[health="healthy"]',
+                    style: {
+                        'border-color': '#22c55e'
+                    }
+                },
+                {
+                    selector: 'node[health="warning"]',
+                    style: {
+                        'border-color': '#f59e0b',
+                        'border-width': 5
+                    }
+                },
+                {
+                    selector: 'node[health="critical"]',
+                    style: {
+                        'border-color': '#ef4444',
+                        'border-width': 6
+                    }
+                },
+                {
+                    selector: 'edge',
+                    style: {
+                        'width': 2,
+                        'target-arrow-shape': 'triangle',
+                        'curve-style': 'bezier'
+                    }
+                },
+                {
+                    selector: 'edge[type="ownership"]',
+                    style: {
+                        'line-color': '#64748b',
+                        'target-arrow-color': '#64748b',
+                        'line-style': 'solid'
+                    }
+                },
+                {
+                    selector: 'edge[type="network"]',
+                    style: {
+                        'line-color': '#0ea5e9',
+                        'target-arrow-color': '#0ea5e9',
+                        'line-style': 'dotted'
+                    }
+                },
+                {
+                    selector: 'edge[type="dependency"]',
+                    style: {
+                        'line-color': '#8b5cf6',
+                        'target-arrow-color': '#8b5cf6',
+                        'line-style': 'dashed'
+                    }
+                },
+                {
+                    selector: ':selected',
+                    style: {
+                        'border-color': '#0ea5e9',
+                        'border-width': 6
+                    }
+                }
+            ],
+
+            layout: {
+                name: 'fcose',
+                quality: 'proof',
+                randomize: false,
+                animate: true,
+                animationDuration: 1000,
+                nodeSeparation: 150,
+                idealEdgeLength: 100,
+                edgeElasticity: 0.45,
+                nestingFactor: 0.1
+            }
+        });
+
+        // ノードクリック時の処理
+        cy.on('tap', 'node', function(evt){
+            const node = evt.target;
+            console.log('Node clicked:', node.data());
+            // ここで Inspector パネルの内容を更新
+        });
+
+        // ホバー時のツールチップ表示
+        cy.on('mouseover', 'node', function(evt){
+            const node = evt.target;
+            node.addClass('hover');
+        });
+
+        cy.on('mouseout', 'node', function(evt){
+            const node = evt.target;
+            node.removeClass('hover');
+        });
+    </script>
+</body>
+</html>
