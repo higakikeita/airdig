@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Cytoscape Test</title>
+    <script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #0f1b2a;
+            color: white;
+        }
+        #cy {
+            width: 100%;
+            height: 600px;
+            background: #1a2332;
+            border: 2px solid #ff9900;
+        }
+        h1 {
+            color: #ff9900;
+        }
+    </style>
+</head>
+<body>
+    <h1>Cytoscape.js Test</h1>
+    <div id="cy"></div>
+
+    <script>
+        console.log('Cytoscape version:', cytoscape.version);
+
+        const cy = cytoscape({
+            container: document.getElementById('cy'),
+
+            elements: [
+                { data: { id: 'a', label: 'Node A' } },
+                { data: { id: 'b', label: 'Node B' } },
+                { data: { id: 'c', label: 'Node C' } },
+                { data: { source: 'a', target: 'b' } },
+                { data: { source: 'b', target: 'c' } }
+            ],
+
+            style: [
+                {
+                    selector: 'node',
+                    style: {
+                        'background-color': '#ff9900',
+                        'label': 'data(label)',
+                        'color': '#fff',
+                        'text-valign': 'center',
+                        'text-halign': 'center',
+                        'width': 60,
+                        'height': 60,
+                        'font-size': 14
+                    }
+                },
+                {
+                    selector: 'edge',
+                    style: {
+                        'width': 3,
+                        'line-color': '#0972d3',
+                        'target-arrow-color': '#0972d3',
+                        'target-arrow-shape': 'triangle'
+                    }
+                }
+            ],
+
+            layout: {
+                name: 'circle'
+            }
+        });
+
+        console.log('Cytoscape initialized');
+        console.log('Elements:', cy.elements().length);
+    </script>
+</body>
+</html>

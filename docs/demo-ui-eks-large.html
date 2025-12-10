@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AirDig - SkyGraph EKS Large-Scale Demo</title>
+    <script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+    <script src="https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
+    <script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Amazon Ember', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f1419;
+            color: #fff;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(90deg, #232f3e 0%, #1a242f 100%);
+            border-bottom: 3px solid #ff9900;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .logo {
+            font-size: 28px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #ff9900 0%, #ffbb33 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 1px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+
+        /* Main Layout */
+        .container {
+            display: flex;
+            height: calc(100vh - 68px);
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: #1a242f;
+            border-right: 1px solid #2a3542;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .sidebar h3 {
+            color: #ff9900;
+            font-size: 14px;
+            text-transform: uppercase;
+            margin-bottom: 16px;
+            letter-spacing: 1px;
+        }
+
+        .filter-group {
+            margin-bottom: 24px;
+        }
+
+        .filter-item {
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            margin: 4px 0;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .filter-item:hover {
+            background: #2a3542;
+        }
+
+        .filter-item input[type="checkbox"] {
+            margin-right: 10px;
+            cursor: pointer;
+        }
+
+        .filter-item label {
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .badge {
+            margin-left: auto;
+            background: #2a3542;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            color: #aaa;
+        }
+
+        /* Graph Canvas */
+        #cy {
+            flex: 1;
+            background: #0f1419;
+            position: relative;
+        }
+
+        /* Inspector Panel */
+        .inspector {
+            width: 360px;
+            background: #1a242f;
+            border-left: 1px solid #2a3542;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .inspector h2 {
+            font-size: 18px;
+            margin-bottom: 16px;
+            color: #ff9900;
+        }
+
+        .info-section {
+            background: #232f3e;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+            border: 1px solid #2a3542;
+        }
+
+        .info-section h4 {
+            font-size: 14px;
+            color: #ff9900;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            font-size: 13px;
+        }
+
+        .info-label {
+            color: #aaa;
+        }
+
+        .info-value {
+            color: #fff;
+            font-weight: 500;
+        }
+
+        .status-healthy { color: #4caf50; }
+        .status-warning { color: #ff9800; }
+        .status-critical { color: #f44336; }
+
+        .metric-bar {
+            background: #2a3542;
+            height: 20px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 8px 0;
+        }
+
+        .metric-fill {
+            height: 100%;
+            transition: width 0.3s;
+        }
+
+        .metric-fill.low { background: #4caf50; }
+        .metric-fill.medium { background: #ff9800; }
+        .metric-fill.high { background: #f44336; }
+
+        /* Controls */
+        .controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: #1a242fdd;
+            backdrop-filter: blur(10px);
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid #2a3542;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 1000;
+        }
+
+        .control-btn {
+            background: #2a3542;
+            border: 1px solid #3a4552;
+            color: #fff;
+            padding: 8px 16px;
+            margin: 4px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .control-btn:hover {
+            background: #ff9900;
+            border-color: #ff9900;
+            color: #000;
+        }
+
+        .control-btn.active {
+            background: #ff9900;
+            border-color: #ff9900;
+            color: #000;
+        }
+
+        /* Legend */
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            left: 300px;
+            background: #1a242fdd;
+            backdrop-filter: blur(10px);
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid #2a3542;
+            z-index: 1000;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            font-size: 12px;
+        }
+
+        .legend-icon {
+            width: 24px;
+            height: 24px;
+            margin-right: 8px;
+            border-radius: 4px;
+        }
+
+        /* Stats Bar */
+        .stats-bar {
+            position: absolute;
+            top: 20px;
+            left: 300px;
+            background: #1a242fdd;
+            backdrop-filter: blur(10px);
+            padding: 16px 24px;
+            border-radius: 8px;
+            border: 1px solid #2a3542;
+            display: flex;
+            gap: 32px;
+            z-index: 1000;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #ff9900;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #aaa;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Minimap */
+        .minimap {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 200px;
+            height: 150px;
+            background: #1a242fdd;
+            backdrop-filter: blur(10px);
+            border: 1px solid #2a3542;
+            border-radius: 8px;
+            overflow: hidden;
+            z-index: 1000;
+        }
+
+        #minimap-cy {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Loading */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 2000;
+        }
+
+        .spinner {
+            border: 4px solid #2a3542;
+            border-top: 4px solid #ff9900;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1a242f;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #2a3542;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #3a4552;
+        }
+
+        /* Toast notifications */
+        .toast {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            background: #1a242f;
+            border: 1px solid #ff9900;
+            border-left: 4px solid #ff9900;
+            padding: 16px;
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 3000;
+            animation: slideIn 0.3s;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="logo">AirDig SkyGraph</div>
+        <div class="header-actions">
+            <span style="color: #aaa;">EKS Large-Scale Demo</span>
+            <span style="color: #ff9900;">●</span>
+            <span style="font-size: 14px;">Live</span>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Sidebar Filters -->
+        <div class="sidebar">
+            <div class="filter-group">
+                <h3>Resource Types</h3>
+                <div class="filter-item">
+                    <input type="checkbox" id="filter-vpc" checked>
+                    <label for="filter-vpc">VPC</label>
+                    <span class="badge">2</span>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="filter-eks" checked>
+                    <label for="filter-eks">EKS Cluster</label>
+                    <span class="badge">1</span>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="filter-nodegroup" checked>
+                    <label for="filter-nodegroup">Node Group</label>
+                    <span class="badge">3</span>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="filter-ec2" checked>
+                    <label for="filter-ec2">EC2 Nodes</label>
+                    <span class="badge">15</span>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="filter-pod" checked>
+                    <label for="filter-pod">Pods</label>
+                    <span class="badge">45</span>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="filter-rds" checked>
+                    <label for="filter-rds">RDS</label>
+                    <span class="badge">2</span>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="filter-alb" checked>
+                    <label for="filter-alb">Load Balancer</label>
+                    <span class="badge">2</span>
+                </div>
+            </div>
+
+            <div class="filter-group">
+                <h3>Health Status</h3>
+                <div class="filter-item">
+                    <input type="checkbox" id="filter-healthy" checked>
+                    <label for="filter-healthy">🟢 Healthy</label>
+                    <span class="badge">58</span>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="filter-warning" checked>
+                    <label for="filter-warning">🟡 Warning</label>
+                    <span class="badge">8</span>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="filter-critical" checked>
+                    <label for="filter-critical">🔴 Critical</label>
+                    <span class="badge">2</span>
+                </div>
+            </div>
+
+            <div class="filter-group">
+                <h3>Namespaces</h3>
+                <div class="filter-item">
+                    <input type="checkbox" id="filter-ns-prod" checked>
+                    <label for="filter-ns-prod">production</label>
+                    <span class="badge">25</span>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="filter-ns-staging" checked>
+                    <label for="filter-ns-staging">staging</label>
+                    <span class="badge">15</span>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="filter-ns-system" checked>
+                    <label for="filter-ns-system">kube-system</label>
+                    <span class="badge">5</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Graph Canvas -->
+        <div style="flex: 1; position: relative;">
+            <div id="cy"></div>
+
+            <!-- Stats Bar -->
+            <div class="stats-bar">
+                <div class="stat-item">
+                    <div class="stat-value">68</div>
+                    <div class="stat-label">Resources</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">45</div>
+                    <div class="stat-label">Pods</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">15</div>
+                    <div class="stat-label">Nodes</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" style="color: #4caf50;">86%</div>
+                    <div class="stat-label">Healthy</div>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="controls">
+                <div style="margin-bottom: 12px; font-size: 12px; color: #aaa; text-transform: uppercase;">Layout</div>
+                <button class="control-btn active" onclick="changeLayout('dagre')">Hierarchical</button>
+                <button class="control-btn" onclick="changeLayout('concentric')">Concentric</button>
+                <button class="control-btn" onclick="changeLayout('cose')">Force</button>
+                <div style="margin: 16px 0 8px; font-size: 12px; color: #aaa; text-transform: uppercase;">View</div>
+                <button class="control-btn" onclick="fitGraph()">Fit</button>
+                <button class="control-btn" onclick="toggleMinimap()">Minimap</button>
+            </div>
+
+            <!-- Legend -->
+            <div class="legend">
+                <div style="font-size: 12px; color: #aaa; text-transform: uppercase; margin-bottom: 8px;">Legend</div>
+                <div class="legend-item">
+                    <img class="legend-icon" src="https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Containers/ElasticKubernetesService.png" alt="EKS">
+                    <span>EKS Cluster</span>
+                </div>
+                <div class="legend-item">
+                    <img class="legend-icon" src="https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Compute/EC2.png" alt="EC2">
+                    <span>EC2 Node</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-icon" style="background: #326ce5;"></div>
+                    <span>Pod</span>
+                </div>
+                <div class="legend-item">
+                    <img class="legend-icon" src="https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Database/RDS.png" alt="RDS">
+                    <span>RDS Database</span>
+                </div>
+            </div>
+
+            <!-- Minimap -->
+            <div class="minimap" id="minimap-container" style="display: none;">
+                <div id="minimap-cy"></div>
+            </div>
+        </div>
+
+        <!-- Inspector Panel -->
+        <div class="inspector" id="inspector">
+            <h2>Inspector</h2>
+            <p style="color: #aaa; font-size: 14px;">Select a resource to view details</p>
+        </div>
+    </div>
+
+    <script>
+        const AWS_ICONS_BASE = 'https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist';
+
+        const AWS_ICONS = {
+            vpc: `${AWS_ICONS_BASE}/Networking/VPC.png`,
+            subnet: `${AWS_ICONS_BASE}/Networking/VPC.png`,
+            eks: `${AWS_ICONS_BASE}/Containers/ElasticKubernetesService.png`,
+            nodegroup: `${AWS_ICONS_BASE}/Compute/EC2AutoScaling.png`,
+            ec2: `${AWS_ICONS_BASE}/Compute/EC2.png`,
+            pod: null, // カスタム色で表示
+            rds: `${AWS_ICONS_BASE}/Database/RDS.png`,
+            alb: `${AWS_ICONS_BASE}/NetworkingContentDelivery/ElasticLoadBalancing.png`,
+            sg: `${AWS_ICONS_BASE}/NetworkingContentDelivery/VPCLattice.png`
+        };
+
+        // Large-scale EKS infrastructure data
+        const elements = [];
+
+        // VPC
+        elements.push({
+            data: {
+                id: 'vpc-prod',
+                label: 'VPC-Production',
+                type: 'vpc',
+                health: 'healthy',
+                details: { cidr: '10.0.0.0/16', region: 'us-east-1' }
+            }
+        });
+
+        // EKS Cluster
+        elements.push({
+            data: {
+                id: 'eks-prod',
+                label: 'eks-production',
+                type: 'eks',
+                health: 'healthy',
+                details: { version: '1.28', platform: 'eks' }
+            }
+        });
+
+        elements.push({ data: { source: 'vpc-prod', target: 'eks-prod', type: 'ownership' } });
+
+        // Node Groups
+        const nodeGroups = [
+            { id: 'ng-system', label: 'system-nodes', count: 3, instanceType: 't3.large' },
+            { id: 'ng-app', label: 'app-nodes', count: 8, instanceType: 't3.xlarge' },
+            { id: 'ng-data', label: 'data-nodes', count: 4, instanceType: 'r5.2xlarge' }
+        ];
+
+        nodeGroups.forEach(ng => {
+            elements.push({
+                data: {
+                    id: ng.id,
+                    label: ng.label,
+                    type: 'nodegroup',
+                    health: 'healthy',
+                    details: { count: ng.count, instanceType: ng.instanceType }
+                }
+            });
+            elements.push({ data: { source: 'eks-prod', target: ng.id, type: 'ownership' } });
+        });
+
+        // EC2 Nodes
+        let nodeIndex = 0;
+        nodeGroups.forEach(ng => {
+            for (let i = 0; i < ng.count; i++) {
+                const nodeId = `node-${nodeIndex++}`;
+                const health = Math.random() > 0.85 ? 'warning' : 'healthy';
+                elements.push({
+                    data: {
+                        id: nodeId,
+                        label: `${ng.label}-${i + 1}`,
+                        type: 'ec2',
+                        health: health,
+                        details: {
+                            instanceType: ng.instanceType,
+                            cpu: Math.floor(Math.random() * 80) + 20,
+                            memory: Math.floor(Math.random() * 70) + 30
+                        }
+                    }
+                });
+                elements.push({ data: { source: ng.id, target: nodeId, type: 'network' } });
+            }
+        });
+
+        // Pods (simplified - show representative pods)
+        const namespaces = ['production', 'staging', 'kube-system'];
+        const podTypes = ['api', 'worker', 'frontend', 'cache'];
+
+        let podIndex = 0;
+        // Show subset of pods for clarity
+        for (let n = 0; n < 3; n++) {
+            for (let p = 0; p < 5; p++) {
+                const podId = `pod-${podIndex++}`;
+                const nodeId = `node-${Math.floor(Math.random() * 15)}`;
+                const health = Math.random() > 0.9 ? 'warning' : (Math.random() > 0.95 ? 'critical' : 'healthy');
+
+                elements.push({
+                    data: {
+                        id: podId,
+                        label: `${podTypes[p % podTypes.length]}-${Math.floor(Math.random() * 100)}`,
+                        type: 'pod',
+                        health: health,
+                        namespace: namespaces[n],
+                        details: {
+                            namespace: namespaces[n],
+                            restarts: Math.floor(Math.random() * 3),
+                            cpu: Math.floor(Math.random() * 50) + 10
+                        }
+                    }
+                });
+                elements.push({ data: { source: nodeId, target: podId, type: 'dependency' } });
+            }
+        }
+
+        // RDS Databases
+        elements.push({
+            data: {
+                id: 'rds-primary',
+                label: 'postgres-primary',
+                type: 'rds',
+                health: 'healthy',
+                details: { engine: 'postgres', version: '15.3', instanceClass: 'db.r5.2xlarge' }
+            }
+        });
+
+        elements.push({
+            data: {
+                id: 'rds-replica',
+                label: 'postgres-replica',
+                type: 'rds',
+                health: 'healthy',
+                details: { engine: 'postgres', version: '15.3', instanceClass: 'db.r5.xlarge', replicaOf: 'rds-primary' }
+            }
+        });
+
+        elements.push({ data: { source: 'vpc-prod', target: 'rds-primary', type: 'ownership' } });
+        elements.push({ data: { source: 'vpc-prod', target: 'rds-replica', type: 'ownership' } });
+        elements.push({ data: { source: 'rds-primary', target: 'rds-replica', type: 'dependency', label: 'replication' } });
+
+        // ALB
+        elements.push({
+            data: {
+                id: 'alb-prod',
+                label: 'alb-production',
+                type: 'alb',
+                health: 'healthy',
+                details: { scheme: 'internet-facing', targets: 25 }
+            }
+        });
+
+        elements.push({ data: { source: 'vpc-prod', target: 'alb-prod', type: 'ownership' } });
+        elements.push({ data: { source: 'alb-prod', target: 'eks-prod', type: 'network' } });
+
+        // Initialize Cytoscape
+        const cy = cytoscape({
+            container: document.getElementById('cy'),
+            elements: elements,
+            style: [
+                {
+                    selector: 'node',
+                    style: {
+                        'label': 'data(label)',
+                        'text-valign': 'bottom',
+                        'text-halign': 'center',
+                        'text-margin-y': 5,
+                        'color': '#fff',
+                        'font-size': 11,
+                        'background-color': '#2a3542',
+                        'border-width': 3,
+                        'border-color': '#3a4552'
+                    }
+                },
+                {
+                    selector: 'node[type="vpc"]',
+                    style: {
+                        'width': 80,
+                        'height': 80,
+                        'background-image': AWS_ICONS.vpc,
+                        'background-fit': 'contain',
+                        'background-clip': 'none',
+                        'border-color': '#1976d2'
+                    }
+                },
+                {
+                    selector: 'node[type="eks"]',
+                    style: {
+                        'width': 70,
+                        'height': 70,
+                        'background-image': AWS_ICONS.eks,
+                        'background-fit': 'contain',
+                        'background-clip': 'none',
+                        'border-color': '#ff9900'
+                    }
+                },
+                {
+                    selector: 'node[type="nodegroup"]',
+                    style: {
+                        'width': 60,
+                        'height': 60,
+                        'background-image': AWS_ICONS.nodegroup,
+                        'background-fit': 'contain',
+                        'background-clip': 'none',
+                        'border-color': '#00acc1'
+                    }
+                },
+                {
+                    selector: 'node[type="ec2"]',
+                    style: {
+                        'width': 50,
+                        'height': 50,
+                        'background-image': AWS_ICONS.ec2,
+                        'background-fit': 'contain',
+                        'background-clip': 'none'
+                    }
+                },
+                {
+                    selector: 'node[type="pod"]',
+                    style: {
+                        'width': 35,
+                        'height': 35,
+                        'background-color': '#326ce5',
+                        'shape': 'hexagon'
+                    }
+                },
+                {
+                    selector: 'node[type="rds"]',
+                    style: {
+                        'width': 60,
+                        'height': 60,
+                        'background-image': AWS_ICONS.rds,
+                        'background-fit': 'contain',
+                        'background-clip': 'none',
+                        'border-color': '#527fff'
+                    }
+                },
+                {
+                    selector: 'node[type="alb"]',
+                    style: {
+                        'width': 60,
+                        'height': 60,
+                        'background-image': AWS_ICONS.alb,
+                        'background-fit': 'contain',
+                        'background-clip': 'none',
+                        'border-color': '#8c4fff'
+                    }
+                },
+                {
+                    selector: 'node[health="healthy"]',
+                    style: {
+                        'border-color': '#4caf50'
+                    }
+                },
+                {
+                    selector: 'node[health="warning"]',
+                    style: {
+                        'border-color': '#ff9800',
+                        'border-width': 4
+                    }
+                },
+                {
+                    selector: 'node[health="critical"]',
+                    style: {
+                        'border-color': '#f44336',
+                        'border-width': 5
+                    }
+                },
+                {
+                    selector: 'edge',
+                    style: {
+                        'width': 2,
+                        'line-color': '#3a4552',
+                        'target-arrow-color': '#3a4552',
+                        'target-arrow-shape': 'triangle',
+                        'curve-style': 'bezier'
+                    }
+                },
+                {
+                    selector: 'edge[type="ownership"]',
+                    style: {
+                        'line-style': 'solid',
+                        'width': 3,
+                        'line-color': '#1976d2',
+                        'target-arrow-color': '#1976d2'
+                    }
+                },
+                {
+                    selector: 'edge[type="network"]',
+                    style: {
+                        'line-style': 'dashed',
+                        'line-color': '#00acc1',
+                        'target-arrow-color': '#00acc1'
+                    }
+                },
+                {
+                    selector: 'edge[type="dependency"]',
+                    style: {
+                        'line-style': 'dotted',
+                        'line-color': '#ff9800',
+                        'target-arrow-color': '#ff9800'
+                    }
+                },
+                {
+                    selector: ':selected',
+                    style: {
+                        'border-width': 5,
+                        'border-color': '#ff9900'
+                    }
+                }
+            ],
+            layout: {
+                name: 'dagre',
+                rankDir: 'TB',
+                nodeSep: 80,
+                rankSep: 100
+            }
+        });
+
+        // Click handler
+        cy.on('tap', 'node', function(evt) {
+            const node = evt.target;
+            const data = node.data();
+            showInspector(data);
+        });
+
+        function showInspector(data) {
+            const healthClass = data.health === 'healthy' ? 'status-healthy' :
+                              data.health === 'warning' ? 'status-warning' : 'status-critical';
+
+            let detailsHtml = '';
+            if (data.details) {
+                for (const [key, value] of Object.entries(data.details)) {
+                    detailsHtml += `
+                        <div class="info-row">
+                            <span class="info-label">${key}:</span>
+                            <span class="info-value">${value}</span>
+                        </div>
+                    `;
+                }
+            }
+
+            let metricsHtml = '';
+            if (data.details && (data.details.cpu || data.details.memory)) {
+                const cpuLevel = data.details.cpu > 70 ? 'high' : data.details.cpu > 40 ? 'medium' : 'low';
+                const memLevel = data.details.memory > 70 ? 'high' : data.details.memory > 40 ? 'medium' : 'low';
+
+                metricsHtml = `
+                    <div class="info-section">
+                        <h4>Metrics</h4>
+                        <div style="margin: 8px 0;">
+                            <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;">
+                                <span>CPU</span>
+                                <span>${data.details.cpu}%</span>
+                            </div>
+                            <div class="metric-bar">
+                                <div class="metric-fill ${cpuLevel}" style="width: ${data.details.cpu}%"></div>
+                            </div>
+                        </div>
+                        ${data.details.memory ? `
+                        <div style="margin: 8px 0;">
+                            <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;">
+                                <span>Memory</span>
+                                <span>${data.details.memory}%</span>
+                            </div>
+                            <div class="metric-bar">
+                                <div class="metric-fill ${memLevel}" style="width: ${data.details.memory}%"></div>
+                            </div>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+
+            document.getElementById('inspector').innerHTML = `
+                <h2>${data.label}</h2>
+                <div class="info-section">
+                    <h4>Basic Info</h4>
+                    <div class="info-row">
+                        <span class="info-label">ID:</span>
+                        <span class="info-value">${data.id}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Type:</span>
+                        <span class="info-value">${data.type.toUpperCase()}</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Health:</span>
+                        <span class="info-value ${healthClass}">● ${data.health.toUpperCase()}</span>
+                    </div>
+                    ${data.namespace ? `
+                    <div class="info-row">
+                        <span class="info-label">Namespace:</span>
+                        <span class="info-value">${data.namespace}</span>
+                    </div>
+                    ` : ''}
+                </div>
+                ${detailsHtml ? `
+                <div class="info-section">
+                    <h4>Details</h4>
+                    ${detailsHtml}
+                </div>
+                ` : ''}
+                ${metricsHtml}
+            `;
+        }
+
+        function changeLayout(layoutName) {
+            document.querySelectorAll('.control-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            const layouts = {
+                dagre: { name: 'dagre', rankDir: 'TB', nodeSep: 80, rankSep: 100 },
+                concentric: { name: 'concentric', minNodeSpacing: 50 },
+                cose: { name: 'cose', nodeRepulsion: 8000, idealEdgeLength: 100, edgeElasticity: 100 }
+            };
+
+            cy.layout(layouts[layoutName]).run();
+        }
+
+        function fitGraph() {
+            cy.fit();
+        }
+
+        function toggleMinimap() {
+            const minimap = document.getElementById('minimap-container');
+            minimap.style.display = minimap.style.display === 'none' ? 'block' : 'none';
+        }
+
+        // Initial layout
+        cy.ready(function() {
+            cy.fit();
+        });
+    </script>
+</body>
+</html>

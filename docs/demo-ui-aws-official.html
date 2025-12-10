@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AirDig SkyGraph - AWS Official Icons</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+    <script src="https://unpkg.com/layout-base/layout-base.js"></script>
+    <script src="https://unpkg.com/cose-base/cose-base.js"></script>
+    <script src="https://unpkg.com/cytoscape-fcose/cytoscape-fcose.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Amazon Ember', sans-serif;
+            background: #f5f7fa;
+        }
+
+        .header {
+            background: #232f3e;
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .header .subtitle {
+            font-size: 0.875rem;
+            color: #aab7b8;
+        }
+
+        .tabs {
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 0 2rem;
+            display: flex;
+            gap: 2rem;
+        }
+
+        .tab {
+            padding: 1rem 0;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            color: #64748b;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            color: #ff9900;
+            border-bottom-color: #ff9900;
+        }
+
+        .tab:hover {
+            color: #ff9900;
+        }
+
+        .container {
+            display: flex;
+            height: calc(100vh - 120px);
+        }
+
+        .sidebar {
+            width: 280px;
+            background: white;
+            border-right: 1px solid #e2e8f0;
+            padding: 1.5rem;
+            overflow-y: auto;
+        }
+
+        .sidebar h3 {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #232f3e;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .filter-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .filter-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            cursor: pointer;
+            border-radius: 0.375rem;
+            transition: background 0.2s;
+        }
+
+        .filter-item:hover {
+            background: #f8f9fa;
+        }
+
+        .filter-item input[type="checkbox"] {
+            cursor: pointer;
+        }
+
+        .filter-item label {
+            cursor: pointer;
+            flex: 1;
+            font-size: 0.875rem;
+        }
+
+        .main-content {
+            flex: 1;
+            position: relative;
+        }
+
+        #cy {
+            width: 100%;
+            height: 100%;
+            background: #fafbfc;
+        }
+
+        .inspector {
+            width: 340px;
+            background: white;
+            border-left: 1px solid #e2e8f0;
+            padding: 1.5rem;
+            overflow-y: auto;
+        }
+
+        .inspector h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #232f3e;
+            margin-bottom: 1rem;
+        }
+
+        .inspector .section {
+            margin-bottom: 1.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .inspector .section:last-child {
+            border-bottom: none;
+        }
+
+        .inspector .label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #5a6c7d;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+
+        .inspector .value {
+            font-size: 0.875rem;
+            color: #232f3e;
+            margin-bottom: 0.75rem;
+        }
+
+        .aws-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #232f3e;
+            color: white;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .status-badge.healthy {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-badge.warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-badge.critical {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .controls {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            display: flex;
+            gap: 0.5rem;
+            z-index: 1000;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            background: white;
+            border: 1px solid #d5dbdb;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .btn:hover {
+            background: #f8f9fa;
+            border-color: #aab7b8;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .btn.primary {
+            background: #ff9900;
+            color: white;
+            border-color: #ff9900;
+        }
+
+        .btn.primary:hover {
+            background: #ec7211;
+            border-color: #ec7211;
+        }
+
+        .legend {
+            position: absolute;
+            bottom: 1rem;
+            left: 1rem;
+            background: white;
+            border: 1px solid #d5dbdb;
+            border-radius: 0.375rem;
+            padding: 1rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            max-width: 280px;
+        }
+
+        .legend-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #232f3e;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 0.75rem;
+            color: #5a6c7d;
+            margin-bottom: 0.5rem;
+        }
+
+        .legend-icon {
+            width: 32px;
+            height: 32px;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: white;
+            border: 1px solid #d5dbdb;
+            border-left: 4px solid #ff9900;
+            border-radius: 0.375rem;
+            padding: 1rem;
+            box-shadow: 0 10px 15px rgba(0,0,0,0.1);
+            display: none;
+            z-index: 2000;
+            min-width: 300px;
+        }
+
+        .toast.show {
+            display: block;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #5a6c7d;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1>AirDig</h1>
+            <div class="subtitle">AWS Cloud Observability - Official Architecture Icons</div>
+        </div>
+        <div>👤 User</div>
+    </div>
+
+    <div class="tabs">
+        <div class="tab active">SkyGraph</div>
+        <div class="tab">DeepDrift</div>
+        <div class="tab">TraceCore</div>
+        <div class="tab">PulseSight</div>
+        <div class="tab">Unified View</div>
+    </div>
+
+    <div class="container">
+        <div class="sidebar">
+            <div class="filter-group">
+                <h3>AWS Services</h3>
+                <div class="filter-item">
+                    <input type="checkbox" id="vpc" checked>
+                    <label for="vpc">Amazon VPC</label>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="ec2" checked>
+                    <label for="ec2">Amazon EC2</label>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="rds" checked>
+                    <label for="rds">Amazon RDS</label>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="elb" checked>
+                    <label for="elb">Elastic Load Balancing</label>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="lambda" checked>
+                    <label for="lambda">AWS Lambda</label>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="s3" checked>
+                    <label for="s3">Amazon S3</label>
+                </div>
+            </div>
+
+            <div class="filter-group">
+                <h3>Health Status</h3>
+                <div class="filter-item">
+                    <input type="checkbox" id="healthy" checked>
+                    <label for="healthy">✓ Healthy (18)</label>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="warning" checked>
+                    <label for="warning">⚠ Warning (4)</label>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="critical" checked>
+                    <label for="critical">✗ Critical (1)</label>
+                </div>
+            </div>
+
+            <div class="filter-group">
+                <h3>Layout Options</h3>
+                <button class="btn" style="width: 100%; margin-bottom: 0.5rem;" onclick="changeLayout('fcose')">Hierarchical</button>
+                <button class="btn" style="width: 100%; margin-bottom: 0.5rem;" onclick="changeLayout('cose')">Force-Directed</button>
+                <button class="btn" style="width: 100%; margin-bottom: 0.5rem;" onclick="changeLayout('circle')">Circle</button>
+                <button class="btn" style="width: 100%;" onclick="changeLayout('grid')">Grid</button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="controls">
+                <button class="btn" onclick="cy.zoom(cy.zoom() * 1.2)">🔍 Zoom In</button>
+                <button class="btn" onclick="cy.zoom(cy.zoom() * 0.8)">🔎 Zoom Out</button>
+                <button class="btn" onclick="cy.fit(); cy.center();">⟲ Reset</button>
+                <button class="btn primary" onclick="exportPNG()">📷 Export</button>
+            </div>
+
+            <div id="cy">
+                <div class="loading">Loading AWS Architecture Icons...</div>
+            </div>
+
+            <div class="legend">
+                <div class="legend-title">AWS Architecture Icons</div>
+                <div class="legend-item">
+                    <img class="legend-icon" src="https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Networking/VPC.png" alt="VPC">
+                    <span>Amazon VPC</span>
+                </div>
+                <div class="legend-item">
+                    <img class="legend-icon" src="https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Compute/EC2.png" alt="EC2">
+                    <span>Amazon EC2</span>
+                </div>
+                <div class="legend-item">
+                    <img class="legend-icon" src="https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Database/RDS.png" alt="RDS">
+                    <span>Amazon RDS</span>
+                </div>
+                <div class="legend-item">
+                    <img class="legend-icon" src="https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/NetworkingContentDelivery/ElasticLoadBalancing.png" alt="ELB">
+                    <span>Elastic Load Balancing</span>
+                </div>
+                <div class="legend-item">
+                    <img class="legend-icon" src="https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Compute/Lambda.png" alt="Lambda">
+                    <span>AWS Lambda</span>
+                </div>
+                <div class="legend-item">
+                    <img class="legend-icon" src="https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Storage/SimpleStorageService.png" alt="S3">
+                    <span>Amazon S3</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="inspector">
+            <h3 id="inspector-title">Resource Details</h3>
+
+            <div class="section" id="inspector-content">
+                <div class="label">Getting Started</div>
+                <div class="value">Click on any AWS resource in the graph to view detailed information.</div>
+                <div class="value" style="margin-top: 1rem;">
+                    <span class="aws-badge">AWS Official Icons</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast">
+        <strong id="toast-title">Notification</strong>
+        <p id="toast-message" style="margin-top: 0.5rem; color: #5a6c7d;"></p>
+    </div>
+
+    <script>
+        // AWS 公式アイコン URL (GitHub の aws-icons-for-plantuml から)
+        const AWS_ICONS_BASE = 'https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist';
+
+        const AWS_ICONS = {
+            vpc: `${AWS_ICONS_BASE}/Networking/VPC.png`,
+            subnet: `${AWS_ICONS_BASE}/Networking/VPCSubnet.png`,
+            sg: `${AWS_ICONS_BASE}/SecurityIdentityCompliance/VPCSecurityGroup.png`,
+            ec2: `${AWS_ICONS_BASE}/Compute/EC2.png`,
+            rds: `${AWS_ICONS_BASE}/Database/RDS.png`,
+            elb: `${AWS_ICONS_BASE}/NetworkingContentDelivery/ElasticLoadBalancing.png`,
+            lambda: `${AWS_ICONS_BASE}/Compute/Lambda.png`,
+            s3: `${AWS_ICONS_BASE}/Storage/SimpleStorageService.png`,
+            cloudwatch: `${AWS_ICONS_BASE}/ManagementGovernance/CloudWatch.png`,
+            iam: `${AWS_ICONS_BASE}/SecurityIdentityCompliance/IAM.png`
+        };
+
+        // Cytoscape グラフの初期化
+        const cy = cytoscape({
+            container: document.getElementById('cy'),
+
+            elements: [
+                // VPC
+                { data: { id: 'vpc-1', label: 'VPC-production\n10.0.0.0/16', type: 'vpc', health: 'healthy' } },
+
+                // Subnets
+                { data: { id: 'subnet-1', label: 'Public-1a\n10.0.1.0/24', type: 'subnet', health: 'healthy' } },
+                { data: { id: 'subnet-2', label: 'Public-1b\n10.0.2.0/24', type: 'subnet', health: 'healthy' } },
+                { data: { id: 'subnet-3', label: 'Private-1a\n10.0.10.0/24', type: 'subnet', health: 'healthy' } },
+                { data: { id: 'subnet-4', label: 'Private-1b\n10.0.11.0/24', type: 'subnet', health: 'healthy' } },
+
+                // Security Groups
+                { data: { id: 'sg-alb', label: 'alb-sg\nHTTP/HTTPS', type: 'sg', health: 'healthy' } },
+                { data: { id: 'sg-web', label: 'web-sg\nHTTP', type: 'sg', health: 'warning' } },
+                { data: { id: 'sg-db', label: 'db-sg\nPostgreSQL', type: 'sg', health: 'healthy' } },
+
+                // Load Balancer
+                { data: { id: 'alb-1', label: 'prod-alb\nApplication LB', type: 'elb', health: 'healthy' } },
+
+                // EC2 Instances
+                { data: { id: 'ec2-1', label: 'web-1\nt3.large', type: 'ec2', health: 'warning' } },
+                { data: { id: 'ec2-2', label: 'web-2\nt3.large', type: 'ec2', health: 'healthy' } },
+                { data: { id: 'ec2-3', label: 'api-1\nt3.medium', type: 'ec2', health: 'healthy' } },
+                { data: { id: 'ec2-4', label: 'api-2\nt3.medium', type: 'ec2', health: 'healthy' } },
+
+                // RDS
+                { data: { id: 'rds-1', label: 'prod-db\nPostgreSQL 14', type: 'rds', health: 'healthy' } },
+
+                // Lambda
+                { data: { id: 'lambda-1', label: 'api-handler\n512MB', type: 'lambda', health: 'healthy' } },
+                { data: { id: 'lambda-2', label: 'data-processor\n1024MB', type: 'lambda', health: 'healthy' } },
+
+                // S3
+                { data: { id: 's3-1', label: 'app-assets\nStandard', type: 's3', health: 'healthy' } },
+                { data: { id: 's3-2', label: 'logs-bucket\nIA', type: 's3', health: 'healthy' } },
+
+                // Edges - VPC structure
+                { data: { source: 'vpc-1', target: 'subnet-1', type: 'ownership' } },
+                { data: { source: 'vpc-1', target: 'subnet-2', type: 'ownership' } },
+                { data: { source: 'vpc-1', target: 'subnet-3', type: 'ownership' } },
+                { data: { source: 'vpc-1', target: 'subnet-4', type: 'ownership' } },
+
+                // ALB placement
+                { data: { source: 'subnet-1', target: 'alb-1', type: 'network' } },
+                { data: { source: 'sg-alb', target: 'alb-1', type: 'security' } },
+
+                // EC2 placement
+                { data: { source: 'subnet-1', target: 'ec2-1', type: 'network' } },
+                { data: { source: 'subnet-2', target: 'ec2-2', type: 'network' } },
+                { data: { source: 'subnet-3', target: 'ec2-3', type: 'network' } },
+                { data: { source: 'subnet-4', target: 'ec2-4', type: 'network' } },
+
+                // Security groups
+                { data: { source: 'sg-web', target: 'ec2-1', type: 'security' } },
+                { data: { source: 'sg-web', target: 'ec2-2', type: 'security' } },
+                { data: { source: 'sg-web', target: 'ec2-3', type: 'security' } },
+                { data: { source: 'sg-web', target: 'ec2-4', type: 'security' } },
+
+                // RDS placement
+                { data: { source: 'subnet-3', target: 'rds-1', type: 'network' } },
+                { data: { source: 'sg-db', target: 'rds-1', type: 'security' } },
+
+                // Traffic flow
+                { data: { source: 'alb-1', target: 'ec2-1', type: 'traffic' } },
+                { data: { source: 'alb-1', target: 'ec2-2', type: 'traffic' } },
+
+                // Dependencies
+                { data: { source: 'ec2-1', target: 'rds-1', type: 'dependency' } },
+                { data: { source: 'ec2-2', target: 'rds-1', type: 'dependency' } },
+                { data: { source: 'ec2-3', target: 'rds-1', type: 'dependency' } },
+                { data: { source: 'ec2-4', target: 'rds-1', type: 'dependency' } },
+
+                { data: { source: 'lambda-1', target: 'rds-1', type: 'dependency' } },
+                { data: { source: 'lambda-2', target: 's3-2', type: 'dependency' } },
+
+                { data: { source: 'ec2-1', target: 's3-1', type: 'dependency' } },
+                { data: { source: 'ec2-2', target: 's3-1', type: 'dependency' } }
+            ],
+
+            style: [
+                {
+                    selector: 'node',
+                    style: {
+                        'background-image': function(ele) {
+                            return AWS_ICONS[ele.data('type')];
+                        },
+                        'background-fit': 'contain',
+                        'background-clip': 'none',
+                        'background-width': '48px',
+                        'background-height': '48px',
+                        'label': 'data(label)',
+                        'text-valign': 'bottom',
+                        'text-halign': 'center',
+                        'text-wrap': 'wrap',
+                        'text-max-width': '100px',
+                        'font-size': '10px',
+                        'font-weight': '500',
+                        'color': '#232f3e',
+                        'text-margin-y': 5,
+                        'width': 70,
+                        'height': 70,
+                        'border-width': 3,
+                        'border-color': '#d5dbdb',
+                        'background-color': '#ffffff',
+                        'text-background-color': '#ffffff',
+                        'text-background-opacity': 0.9,
+                        'text-background-padding': '2px'
+                    }
+                },
+                {
+                    selector: 'node[type="vpc"]',
+                    style: {
+                        'width': 120,
+                        'height': 90,
+                        'background-width': '60px',
+                        'background-height': '60px',
+                        'shape': 'round-rectangle'
+                    }
+                },
+                {
+                    selector: 'node[type="subnet"]',
+                    style: {
+                        'width': 90,
+                        'height': 80,
+                        'background-width': '50px',
+                        'background-height': '50px',
+                        'shape': 'round-rectangle'
+                    }
+                },
+                {
+                    selector: 'node[type="sg"]',
+                    style: {
+                        'width': 65,
+                        'height': 65,
+                        'background-width': '40px',
+                        'background-height': '40px',
+                        'shape': 'round-diamond'
+                    }
+                },
+                {
+                    selector: 'node[health="healthy"]',
+                    style: {
+                        'border-color': '#1f7a3d',
+                        'border-width': 3
+                    }
+                },
+                {
+                    selector: 'node[health="warning"]',
+                    style: {
+                        'border-color': '#ff9900',
+                        'border-width': 5
+                    }
+                },
+                {
+                    selector: 'node[health="critical"]',
+                    style: {
+                        'border-color': '#d13212',
+                        'border-width': 6
+                    }
+                },
+                {
+                    selector: 'edge',
+                    style: {
+                        'width': 2,
+                        'target-arrow-shape': 'triangle',
+                        'curve-style': 'bezier',
+                        'arrow-scale': 1.2
+                    }
+                },
+                {
+                    selector: 'edge[type="ownership"]',
+                    style: {
+                        'line-color': '#879596',
+                        'target-arrow-color': '#879596',
+                        'line-style': 'solid',
+                        'width': 2
+                    }
+                },
+                {
+                    selector: 'edge[type="network"]',
+                    style: {
+                        'line-color': '#232f3e',
+                        'target-arrow-color': '#232f3e',
+                        'line-style': 'solid',
+                        'width': 2
+                    }
+                },
+                {
+                    selector: 'edge[type="security"]',
+                    style: {
+                        'line-color': '#d13212',
+                        'target-arrow-color': '#d13212',
+                        'line-style': 'dashed',
+                        'width': 2
+                    }
+                },
+                {
+                    selector: 'edge[type="traffic"]',
+                    style: {
+                        'line-color': '#ff9900',
+                        'target-arrow-color': '#ff9900',
+                        'line-style': 'solid',
+                        'width': 3
+                    }
+                },
+                {
+                    selector: 'edge[type="dependency"]',
+                    style: {
+                        'line-color': '#545b64',
+                        'target-arrow-color': '#545b64',
+                        'line-style': 'dotted',
+                        'width': 2
+                    }
+                },
+                {
+                    selector: ':selected',
+                    style: {
+                        'border-color': '#ff9900',
+                        'border-width': 6,
+                        'overlay-opacity': 0.1,
+                        'overlay-color': '#ff9900'
+                    }
+                }
+            ],
+
+            layout: {
+                name: 'fcose',
+                quality: 'proof',
+                randomize: false,
+                animate: true,
+                animationDuration: 1200,
+                nodeSeparation: 180,
+                idealEdgeLength: 150,
+                edgeElasticity: 0.45,
+                nestingFactor: 0.1,
+                gravity: 0.25,
+                numIter: 2500,
+                tile: true
+            }
+        });
+
+        // ノードクリック時の処理
+        cy.on('tap', 'node', function(evt){
+            const node = evt.target;
+            const data = node.data();
+            updateInspector(data);
+            showToast('Resource Selected', data.label.split('\n')[0]);
+        });
+
+        // Inspector パネルの更新
+        function updateInspector(data) {
+            const title = document.getElementById('inspector-title');
+            const content = document.getElementById('inspector-content');
+
+            title.textContent = data.label.split('\n')[0];
+
+            const healthColor = data.health === 'healthy' ? 'healthy' :
+                               data.health === 'warning' ? 'warning' : 'critical';
+
+            const serviceNames = {
+                vpc: 'Amazon VPC',
+                subnet: 'VPC Subnet',
+                sg: 'Security Group',
+                ec2: 'Amazon EC2',
+                rds: 'Amazon RDS',
+                elb: 'Elastic Load Balancing',
+                lambda: 'AWS Lambda',
+                s3: 'Amazon S3'
+            };
+
+            content.innerHTML = `
+                <div class="section">
+                    <div class="label">AWS Service</div>
+                    <div class="value">
+                        <span class="aws-badge">${serviceNames[data.type]}</span>
+                    </div>
+                    <div class="value" style="font-size: 0.75rem; color: #5a6c7d; margin-top: 0.5rem;">${data.id}</div>
+                </div>
+
+                <div class="section">
+                    <div class="label">Health Status</div>
+                    <div class="value">
+                        <span class="status-badge ${healthColor}">
+                            ${data.health === 'healthy' ? '✓ Healthy' :
+                              data.health === 'warning' ? '⚠ Warning' : '✗ Critical'}
+                        </span>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="label">Graph Connections</div>
+                    <div class="value">Incoming: ${cy.edges('[target="' + data.id + '"]').length} connections</div>
+                    <div class="value">Outgoing: ${cy.edges('[source="' + data.id + '"]').length} connections</div>
+                </div>
+
+                <div class="section">
+                    <div class="label">Quick Actions</div>
+                    <button class="btn primary" style="width: 100%; margin-bottom: 0.5rem;" onclick="window.open('https://console.aws.amazon.com', '_blank')">
+                        Open AWS Console
+                    </button>
+                    <button class="btn" style="width: 100%; margin-bottom: 0.5rem;">View CloudWatch Metrics</button>
+                    <button class="btn" style="width: 100%;">View CloudTrail Events</button>
+                </div>
+            `;
+        }
+
+        // Toast 通知
+        function showToast(title, message) {
+            const toast = document.getElementById('toast');
+            const toastTitle = document.getElementById('toast-title');
+            const toastMessage = document.getElementById('toast-message');
+
+            toastTitle.textContent = title;
+            toastMessage.textContent = message;
+            toast.classList.add('show');
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // レイアウト変更
+        function changeLayout(layoutName) {
+            const layouts = {
+                fcose: {
+                    name: 'fcose',
+                    quality: 'proof',
+                    randomize: false,
+                    animate: true,
+                    animationDuration: 1000,
+                    nodeSeparation: 180
+                },
+                cose: {
+                    name: 'cose',
+                    animate: true,
+                    animationDuration: 1000,
+                    nodeRepulsion: 500000
+                },
+                circle: {
+                    name: 'circle',
+                    animate: true,
+                    animationDuration: 1000
+                },
+                grid: {
+                    name: 'grid',
+                    animate: true,
+                    animationDuration: 1000,
+                    rows: 4
+                }
+            };
+
+            cy.layout(layouts[layoutName]).run();
+            showToast('Layout Changed', `Switched to ${layoutName} layout`);
+        }
+
+        // PNG エクスポート
+        function exportPNG() {
+            const png = cy.png({
+                full: true,
+                scale: 3,
+                bg: '#ffffff'
+            });
+
+            const link = document.createElement('a');
+            link.href = png;
+            link.download = 'airdig-aws-architecture-' + Date.now() + '.png';
+            link.click();
+
+            showToast('Export Complete', 'Architecture diagram saved as PNG');
+        }
+
+        // 初期化
+        setTimeout(() => {
+            cy.fit();
+            cy.center();
+            document.querySelector('.loading').style.display = 'none';
+        }, 500);
+    </script>
+</body>
+</html>

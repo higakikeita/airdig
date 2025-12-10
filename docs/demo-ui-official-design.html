@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AirDig SkyGraph - Official Design System Demo</title>
+
+    <!-- Cloudscape Design System -->
+    <link rel="stylesheet" href="https://unpkg.com/@cloudscape-design/global-styles@1.0.25/index.css">
+
+    <!-- Cytoscape.js -->
+    <script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+
+    <style>
+        /* AWS Cloudscape Official Colors (Dark Mode) */
+        :root {
+            /* Background colors */
+            --color-background-layout-main: #0f1b2a;
+            --color-background-container-content: #16191f;
+            --color-background-container-header: #232f3e;
+
+            /* Text colors */
+            --color-text-body-default: #ffffff;
+            --color-text-body-secondary: #aab7b8;
+            --color-text-heading-default: #ffffff;
+            --color-text-label: #aab7b8;
+
+            /* Border colors */
+            --color-border-container-divider: #414d5c;
+            --color-border-item-hover: #545b64;
+
+            /* Status colors */
+            --color-text-status-success: #1d8102;
+            --color-text-status-error: #d13212;
+            --color-text-status-warning: #8d6605;
+            --color-text-status-info: #0972d3;
+
+            /* Interactive colors */
+            --color-background-button-primary-default: #0972d3;
+            --color-background-button-primary-hover: #005fa3;
+
+            /* AWS Brand Colors */
+            --aws-squid-ink: #232f3e;
+            --aws-smile-orange: #ff9900;
+            --aws-orange-accent: #ec7211;
+
+            /* Kubernetes Official */
+            --k8s-blue: #326ce5;
+
+            /* Spacing (Cloudscape) */
+            --space-xxs: 4px;
+            --space-xs: 8px;
+            --space-s: 12px;
+            --space-m: 16px;
+            --space-l: 20px;
+            --space-xl: 24px;
+            --space-xxl: 40px;
+
+            /* Typography */
+            --font-family-base: "Amazon Ember", "Helvetica Neue", Roboto, Arial, sans-serif;
+            --font-size-body-s: 12px;
+            --font-size-body-m: 14px;
+            --font-size-heading-xs: 16px;
+            --font-size-heading-s: 18px;
+            --font-size-heading-m: 20px;
+            --font-size-heading-l: 24px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-family-base);
+            background: var(--color-background-layout-main);
+            color: var(--color-text-body-default);
+            overflow: hidden;
+        }
+
+        /* Header - AWS Console Style */
+        .awsui-app-layout-header {
+            background: var(--aws-squid-ink);
+            border-bottom: 2px solid var(--aws-smile-orange);
+            padding: var(--space-m) var(--space-xl);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 48px;
+        }
+
+        .awsui-logo {
+            font-size: var(--font-size-heading-m);
+            font-weight: 700;
+            color: var(--color-text-heading-default);
+            letter-spacing: 0.5px;
+        }
+
+        .awsui-logo-accent {
+            color: var(--aws-smile-orange);
+        }
+
+        .awsui-header-actions {
+            display: flex;
+            gap: var(--space-m);
+            align-items: center;
+        }
+
+        .awsui-badge {
+            background: var(--color-background-button-primary-default);
+            color: var(--color-text-body-default);
+            padding: var(--space-xxs) var(--space-s);
+            border-radius: 4px;
+            font-size: var(--font-size-body-s);
+            font-weight: 500;
+        }
+
+        .awsui-status-indicator {
+            display: flex;
+            align-items: center;
+            gap: var(--space-xs);
+            font-size: var(--font-size-body-m);
+        }
+
+        .awsui-status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #1d8102;
+        }
+
+        /* Main Layout */
+        .awsui-app-layout {
+            display: flex;
+            height: calc(100vh - 48px);
+        }
+
+        /* Sidebar Navigation */
+        .awsui-side-navigation {
+            width: 280px;
+            background: var(--color-background-container-content);
+            border-right: 1px solid var(--color-border-container-divider);
+            overflow-y: auto;
+        }
+
+        .awsui-side-navigation-header {
+            padding: var(--space-m) var(--space-l);
+            border-bottom: 1px solid var(--color-border-container-divider);
+        }
+
+        .awsui-side-navigation-title {
+            font-size: var(--font-size-heading-xs);
+            font-weight: 700;
+            color: var(--color-text-heading-default);
+            margin-bottom: var(--space-xs);
+        }
+
+        .awsui-side-navigation-section {
+            padding: var(--space-m) var(--space-l);
+        }
+
+        .awsui-side-navigation-section-title {
+            font-size: var(--font-size-body-s);
+            font-weight: 700;
+            color: var(--color-text-label);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: var(--space-s);
+        }
+
+        .awsui-checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-xs);
+        }
+
+        .awsui-checkbox {
+            display: flex;
+            align-items: center;
+            padding: var(--space-xs);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.15s ease-in-out;
+        }
+
+        .awsui-checkbox:hover {
+            background: var(--color-background-container-header);
+        }
+
+        .awsui-checkbox input[type="checkbox"] {
+            margin-right: var(--space-s);
+            cursor: pointer;
+            width: 16px;
+            height: 16px;
+        }
+
+        .awsui-checkbox-label {
+            flex: 1;
+            font-size: var(--font-size-body-m);
+            color: var(--color-text-body-default);
+            cursor: pointer;
+        }
+
+        .awsui-badge-count {
+            background: var(--color-background-container-header);
+            color: var(--color-text-body-secondary);
+            padding: 2px var(--space-xs);
+            border-radius: 10px;
+            font-size: var(--font-size-body-s);
+            font-weight: 500;
+            min-width: 24px;
+            text-align: center;
+        }
+
+        /* Main Content */
+        .awsui-content-layout {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Graph Container */
+        .awsui-container {
+            flex: 1;
+            background: var(--color-background-layout-main);
+            position: relative;
+        }
+
+        #cy {
+            width: 100%;
+            height: 100%;
+            background: var(--color-background-layout-main);
+        }
+
+        /* Stats Container */
+        .awsui-stats-container {
+            position: absolute;
+            top: var(--space-l);
+            left: var(--space-l);
+            background: var(--color-background-container-header);
+            border: 1px solid var(--color-border-container-divider);
+            border-radius: 8px;
+            padding: var(--space-m) var(--space-l);
+            display: flex;
+            gap: var(--space-xxl);
+            z-index: 1000;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .awsui-stat {
+            text-align: center;
+        }
+
+        .awsui-stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--color-text-heading-default);
+            line-height: 1;
+        }
+
+        .awsui-stat-label {
+            font-size: var(--font-size-body-s);
+            color: var(--color-text-label);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: var(--space-xxs);
+        }
+
+        .awsui-stat-value.success {
+            color: #1d8102;
+        }
+
+        .awsui-stat-value.warning {
+            color: #8d6605;
+        }
+
+        .awsui-stat-value.error {
+            color: #d13212;
+        }
+
+        /* Controls */
+        .awsui-button-group {
+            position: absolute;
+            top: var(--space-l);
+            right: var(--space-l);
+            background: var(--color-background-container-header);
+            border: 1px solid var(--color-border-container-divider);
+            border-radius: 8px;
+            padding: var(--space-m);
+            z-index: 1000;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .awsui-button-group-title {
+            font-size: var(--font-size-body-s);
+            font-weight: 700;
+            color: var(--color-text-label);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: var(--space-s);
+        }
+
+        .awsui-button-group-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: var(--space-xs);
+        }
+
+        .awsui-button {
+            background: var(--color-background-container-content);
+            border: 1px solid var(--color-border-container-divider);
+            color: var(--color-text-body-default);
+            padding: var(--space-xs) var(--space-m);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: var(--font-size-body-m);
+            font-family: var(--font-family-base);
+            transition: all 0.15s ease-in-out;
+            text-align: left;
+            white-space: nowrap;
+        }
+
+        .awsui-button:hover {
+            background: var(--color-background-container-header);
+            border-color: var(--color-border-item-hover);
+        }
+
+        .awsui-button.active {
+            background: var(--color-background-button-primary-default);
+            border-color: var(--color-background-button-primary-default);
+            color: #ffffff;
+        }
+
+        /* Details Panel */
+        .awsui-split-panel {
+            width: 400px;
+            background: var(--color-background-container-content);
+            border-left: 1px solid var(--color-border-container-divider);
+            overflow-y: auto;
+        }
+
+        .awsui-split-panel-header {
+            padding: var(--space-l);
+            border-bottom: 1px solid var(--color-border-container-divider);
+        }
+
+        .awsui-split-panel-title {
+            font-size: var(--font-size-heading-s);
+            font-weight: 700;
+            color: var(--color-text-heading-default);
+        }
+
+        .awsui-split-panel-content {
+            padding: var(--space-l);
+        }
+
+        .awsui-container-inner {
+            background: var(--color-background-container-header);
+            border: 1px solid var(--color-border-container-divider);
+            border-radius: 8px;
+            padding: var(--space-m);
+            margin-bottom: var(--space-m);
+        }
+
+        .awsui-container-header {
+            font-size: var(--font-size-body-m);
+            font-weight: 700;
+            color: var(--aws-smile-orange);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: var(--space-s);
+        }
+
+        .awsui-key-value-pair {
+            display: flex;
+            justify-content: space-between;
+            padding: var(--space-xs) 0;
+            font-size: var(--font-size-body-m);
+        }
+
+        .awsui-key-value-pair-label {
+            color: var(--color-text-label);
+        }
+
+        .awsui-key-value-pair-value {
+            color: var(--color-text-body-default);
+            font-weight: 500;
+        }
+
+        /* Status Indicators */
+        .awsui-status-indicator-success {
+            color: #1d8102;
+        }
+
+        .awsui-status-indicator-warning {
+            color: #8d6605;
+        }
+
+        .awsui-status-indicator-error {
+            color: #d13212;
+        }
+
+        /* Progress Bar */
+        .awsui-progress-bar {
+            background: var(--color-background-container-content);
+            height: 20px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: var(--space-xs);
+        }
+
+        .awsui-progress-bar-fill {
+            height: 100%;
+            transition: width 0.3s ease-in-out;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: var(--space-xs);
+            font-size: var(--font-size-body-s);
+            font-weight: 700;
+        }
+
+        .awsui-progress-bar-fill.low {
+            background: #1d8102;
+        }
+
+        .awsui-progress-bar-fill.medium {
+            background: #8d6605;
+        }
+
+        .awsui-progress-bar-fill.high {
+            background: #d13212;
+        }
+
+        /* Legend */
+        .awsui-legend {
+            position: absolute;
+            bottom: var(--space-l);
+            left: var(--space-l);
+            background: var(--color-background-container-header);
+            border: 1px solid var(--color-border-container-divider);
+            border-radius: 8px;
+            padding: var(--space-m);
+            z-index: 1000;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .awsui-legend-title {
+            font-size: var(--font-size-body-s);
+            font-weight: 700;
+            color: var(--color-text-label);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: var(--space-s);
+        }
+
+        .awsui-legend-item {
+            display: flex;
+            align-items: center;
+            gap: var(--space-s);
+            padding: var(--space-xs) 0;
+        }
+
+        .awsui-legend-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .awsui-legend-icon img {
+            width: 24px;
+            height: 24px;
+        }
+
+        .awsui-legend-label {
+            font-size: var(--font-size-body-m);
+            color: var(--color-text-body-default);
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 12px;
+            height: 12px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--color-background-container-content);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--color-border-container-divider);
+            border-radius: 6px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--color-border-item-hover);
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="awsui-app-layout-header">
+        <div class="awsui-logo">
+            <span class="awsui-logo-accent">Air</span>Dig SkyGraph
+        </div>
+        <div class="awsui-header-actions">
+            <div class="awsui-badge">EKS Production</div>
+            <div class="awsui-status-indicator">
+                <span class="awsui-status-dot"></span>
+                <span>Live Monitoring</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="awsui-app-layout">
+        <!-- Side Navigation -->
+        <div class="awsui-side-navigation">
+            <div class="awsui-side-navigation-header">
+                <div class="awsui-side-navigation-title">Filters & Settings</div>
+            </div>
+
+            <div class="awsui-side-navigation-section">
+                <div class="awsui-side-navigation-section-title">Resource Types</div>
+                <div class="awsui-checkbox-group">
+                    <label class="awsui-checkbox">
+                        <input type="checkbox" id="filter-vpc" checked>
+                        <span class="awsui-checkbox-label">VPC</span>
+                        <span class="awsui-badge-count">2</span>
+                    </label>
+                    <label class="awsui-checkbox">
+                        <input type="checkbox" id="filter-eks" checked>
+                        <span class="awsui-checkbox-label">EKS Cluster</span>
+                        <span class="awsui-badge-count">1</span>
+                    </label>
+                    <label class="awsui-checkbox">
+                        <input type="checkbox" id="filter-nodegroup" checked>
+                        <span class="awsui-checkbox-label">Node Group</span>
+                        <span class="awsui-badge-count">3</span>
+                    </label>
+                    <label class="awsui-checkbox">
+                        <input type="checkbox" id="filter-ec2" checked>
+                        <span class="awsui-checkbox-label">EC2 Instances</span>
+                        <span class="awsui-badge-count">15</span>
+                    </label>
+                    <label class="awsui-checkbox">
+                        <input type="checkbox" id="filter-pod" checked>
+                        <span class="awsui-checkbox-label">Kubernetes Pods</span>
+                        <span class="awsui-badge-count">42</span>
+                    </label>
+                    <label class="awsui-checkbox">
+                        <input type="checkbox" id="filter-rds" checked>
+                        <span class="awsui-checkbox-label">RDS Database</span>
+                        <span class="awsui-badge-count">2</span>
+                    </label>
+                    <label class="awsui-checkbox">
+                        <input type="checkbox" id="filter-alb" checked>
+                        <span class="awsui-checkbox-label">Load Balancer</span>
+                        <span class="awsui-badge-count">1</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="awsui-side-navigation-section">
+                <div class="awsui-side-navigation-section-title">Health Status</div>
+                <div class="awsui-checkbox-group">
+                    <label class="awsui-checkbox">
+                        <input type="checkbox" id="filter-healthy" checked>
+                        <span class="awsui-checkbox-label">✓ Healthy</span>
+                        <span class="awsui-badge-count">58</span>
+                    </label>
+                    <label class="awsui-checkbox">
+                        <input type="checkbox" id="filter-warning" checked>
+                        <span class="awsui-checkbox-label">⚠ Warning</span>
+                        <span class="awsui-badge-count">6</span>
+                    </label>
+                    <label class="awsui-checkbox">
+                        <input type="checkbox" id="filter-critical" checked>
+                        <span class="awsui-checkbox-label">✕ Critical</span>
+                        <span class="awsui-badge-count">2</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="awsui-side-navigation-section">
+                <div class="awsui-side-navigation-section-title">Kubernetes Namespaces</div>
+                <div class="awsui-checkbox-group">
+                    <label class="awsui-checkbox">
+                        <input type="checkbox" id="filter-ns-prod" checked>
+                        <span class="awsui-checkbox-label">production</span>
+                        <span class="awsui-badge-count">25</span>
+                    </label>
+                    <label class="awsui-checkbox">
+                        <input type="checkbox" id="filter-ns-staging" checked>
+                        <span class="awsui-checkbox-label">staging</span>
+                        <span class="awsui-badge-count">12</span>
+                    </label>
+                    <label class="awsui-checkbox">
+                        <input type="checkbox" id="filter-ns-system" checked>
+                        <span class="awsui-checkbox-label">kube-system</span>
+                        <span class="awsui-badge-count">5</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="awsui-content-layout">
+            <div class="awsui-container">
+                <!-- Stats -->
+                <div class="awsui-stats-container">
+                    <div class="awsui-stat">
+                        <div class="awsui-stat-value">66</div>
+                        <div class="awsui-stat-label">Total Resources</div>
+                    </div>
+                    <div class="awsui-stat">
+                        <div class="awsui-stat-value">42</div>
+                        <div class="awsui-stat-label">Kubernetes Pods</div>
+                    </div>
+                    <div class="awsui-stat">
+                        <div class="awsui-stat-value success">88%</div>
+                        <div class="awsui-stat-label">Healthy</div>
+                    </div>
+                    <div class="awsui-stat">
+                        <div class="awsui-stat-value warning">9%</div>
+                        <div class="awsui-stat-label">Warning</div>
+                    </div>
+                    <div class="awsui-stat">
+                        <div class="awsui-stat-value error">3%</div>
+                        <div class="awsui-stat-label">Critical</div>
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="awsui-button-group">
+                    <div class="awsui-button-group-title">Layout</div>
+                    <div class="awsui-button-group-buttons">
+                        <button class="awsui-button" onclick="changeLayout('hierarchical')">Hierarchical</button>
+                        <button class="awsui-button" onclick="changeLayout('concentric')">Concentric</button>
+                        <button class="awsui-button active" onclick="changeLayout('cose')">Force-Directed</button>
+                    </div>
+                    <div class="awsui-button-group-title" style="margin-top: 16px;">View</div>
+                    <div class="awsui-button-group-buttons">
+                        <button class="awsui-button" onclick="fitGraph()">Fit to Screen</button>
+                        <button class="awsui-button" onclick="resetView()">Reset View</button>
+                    </div>
+                </div>
+
+                <!-- Legend -->
+                <div class="awsui-legend">
+                    <div class="awsui-legend-title">Legend</div>
+                    <div class="awsui-legend-item">
+                        <div class="awsui-legend-icon">
+                            <img src="https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Containers/ElasticKubernetesService.png" alt="EKS">
+                        </div>
+                        <span class="awsui-legend-label">EKS Cluster</span>
+                    </div>
+                    <div class="awsui-legend-item">
+                        <div class="awsui-legend-icon">
+                            <img src="https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Compute/EC2.png" alt="EC2">
+                        </div>
+                        <span class="awsui-legend-label">EC2 Instance</span>
+                    </div>
+                    <div class="awsui-legend-item">
+                        <div class="awsui-legend-icon" style="background: var(--k8s-blue);">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+                                <path d="M12 2L2 7v10c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-10-5z"/>
+                            </svg>
+                        </div>
+                        <span class="awsui-legend-label">Kubernetes Pod</span>
+                    </div>
+                    <div class="awsui-legend-item">
+                        <div class="awsui-legend-icon">
+                            <img src="https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Database/RDS.png" alt="RDS">
+                        </div>
+                        <span class="awsui-legend-label">RDS Database</span>
+                    </div>
+                </div>
+
+                <!-- Graph -->
+                <div id="cy"></div>
+            </div>
+        </div>
+
+        <!-- Details Panel -->
+        <div class="awsui-split-panel">
+            <div class="awsui-split-panel-header">
+                <div class="awsui-split-panel-title">Resource Details</div>
+            </div>
+            <div class="awsui-split-panel-content" id="details-panel">
+                <p style="color: var(--color-text-label); font-size: var(--font-size-body-m);">
+                    Select a resource from the graph to view detailed information.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // AWS Official Icons
+        const AWS_ICONS = {
+            vpc: 'https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Networking/VPC.png',
+            eks: 'https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Containers/ElasticKubernetesService.png',
+            nodegroup: 'https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Compute/EC2AutoScaling.png',
+            ec2: 'https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Compute/EC2.png',
+            rds: 'https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/Database/RDS.png',
+            alb: 'https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist/NetworkingContentDelivery/ElasticLoadBalancing.png'
+        };
+
+        // Create graph elements
+        const elements = [];
+
+        // VPC
+        elements.push({
+            data: {
+                id: 'vpc-prod',
+                label: 'vpc-production',
+                type: 'vpc',
+                health: 'healthy',
+                details: { cidr: '10.0.0.0/16', region: 'us-east-1', environment: 'production' }
+            }
+        });
+
+        // EKS Cluster
+        elements.push({
+            data: {
+                id: 'eks-prod',
+                label: 'eks-production',
+                type: 'eks',
+                health: 'healthy',
+                details: { version: '1.28', platform: 'Amazon EKS', endpoint: 'https://ABC123.eks.us-east-1.amazonaws.com' }
+            }
+        });
+        elements.push({ data: { source: 'vpc-prod', target: 'eks-prod', type: 'ownership' } });
+
+        // Node Groups
+        const nodeGroups = [
+            { id: 'ng-system', label: 'system-nodegroup', count: 3, instanceType: 't3.large', min: 3, max: 5 },
+            { id: 'ng-app', label: 'app-nodegroup', count: 8, instanceType: 't3.xlarge', min: 5, max: 10 },
+            { id: 'ng-data', label: 'data-nodegroup', count: 4, instanceType: 'r5.2xlarge', min: 2, max: 6 }
+        ];
+
+        nodeGroups.forEach(ng => {
+            elements.push({
+                data: {
+                    id: ng.id,
+                    label: ng.label,
+                    type: 'nodegroup',
+                    health: 'healthy',
+                    details: {
+                        currentSize: ng.count,
+                        instanceType: ng.instanceType,
+                        minSize: ng.min,
+                        maxSize: ng.max,
+                        desiredCapacity: ng.count
+                    }
+                }
+            });
+            elements.push({ data: { source: 'eks-prod', target: ng.id, type: 'ownership' } });
+        });
+
+        // EC2 Nodes (sample)
+        let nodeIdx = 0;
+        nodeGroups.forEach((ng, ngi) => {
+            const nodeCount = Math.min(ng.count, 3); // Show subset for clarity
+            for (let i = 0; i < nodeCount; i++) {
+                const nodeId = `node-${nodeIdx++}`;
+                const health = Math.random() > 0.9 ? 'warning' : 'healthy';
+                const cpu = Math.floor(Math.random() * 60) + 20;
+                const memory = Math.floor(Math.random() * 60) + 30;
+
+                elements.push({
+                    data: {
+                        id: nodeId,
+                        label: `ip-10-0-${ngi}-${i}`,
+                        type: 'ec2',
+                        health: health,
+                        details: {
+                            instanceType: ng.instanceType,
+                            privateIp: `10.0.${ngi}.${i + 10}`,
+                            availabilityZone: `us-east-1${String.fromCharCode(97 + ngi)}`,
+                            cpu: cpu,
+                            memory: memory,
+                            pods: Math.floor(Math.random() * 10) + 5
+                        }
+                    }
+                });
+                elements.push({ data: { source: ng.id, target: nodeId, type: 'network' } });
+            }
+        });
+
+        // Kubernetes Pods (sample - show representative pods on each node)
+        const namespaces = ['production', 'staging', 'kube-system'];
+        const workloads = ['api', 'worker', 'frontend', 'cache', 'monitoring'];
+
+        let podIdx = 0;
+        for (let n = 0; n < nodeIdx; n++) {
+            const podCount = Math.floor(Math.random() * 3) + 2;
+            for (let p = 0; p < podCount; p++) {
+                const podId = `pod-${podIdx++}`;
+                const ns = namespaces[Math.floor(Math.random() * namespaces.length)];
+                const workload = workloads[Math.floor(Math.random() * workloads.length)];
+                const health = Math.random() > 0.92 ? (Math.random() > 0.5 ? 'warning' : 'critical') : 'healthy';
+
+                elements.push({
+                    data: {
+                        id: podId,
+                        label: `${workload}-${Math.floor(Math.random() * 1000)}`,
+                        type: 'pod',
+                        health: health,
+                        namespace: ns,
+                        details: {
+                            namespace: ns,
+                            workload: workload,
+                            restarts: Math.floor(Math.random() * 3),
+                            age: `${Math.floor(Math.random() * 72)}h`,
+                            status: health === 'healthy' ? 'Running' : (health === 'warning' ? 'CrashLoopBackOff' : 'Error')
+                        }
+                    }
+                });
+                elements.push({ data: { source: `node-${n}`, target: podId, type: 'dependency' } });
+            }
+        }
+
+        // RDS
+        elements.push({
+            data: {
+                id: 'rds-primary',
+                label: 'postgres-primary',
+                type: 'rds',
+                health: 'healthy',
+                details: {
+                    engine: 'PostgreSQL',
+                    version: '15.3',
+                    instanceClass: 'db.r5.2xlarge',
+                    storage: '500 GB',
+                    multiAZ: true
+                }
+            }
+        });
+        elements.push({ data: { source: 'vpc-prod', target: 'rds-primary', type: 'ownership' } });
+
+        // ALB
+        elements.push({
+            data: {
+                id: 'alb-prod',
+                label: 'alb-production',
+                type: 'alb',
+                health: 'healthy',
+                details: {
+                    scheme: 'internet-facing',
+                    ipAddressType: 'ipv4',
+                    targets: 15,
+                    healthyTargets: 14
+                }
+            }
+        });
+        elements.push({ data: { source: 'vpc-prod', target: 'alb-prod', type: 'ownership' } });
+        elements.push({ data: { source: 'alb-prod', target: 'eks-prod', type: 'network' } });
+
+        // Initialize Cytoscape
+        const cy = cytoscape({
+            container: document.getElementById('cy'),
+            elements: elements,
+            style: [
+                {
+                    selector: 'node',
+                    style: {
+                        'label': 'data(label)',
+                        'text-valign': 'bottom',
+                        'text-halign': 'center',
+                        'text-margin-y': 5,
+                        'color': '#ffffff',
+                        'font-size': 11,
+                        'font-family': 'Amazon Ember, sans-serif',
+                        'background-color': '#232f3e',
+                        'border-width': 3,
+                        'border-color': '#545b64'
+                    }
+                },
+                {
+                    selector: 'node[type="vpc"]',
+                    style: {
+                        'width': 80,
+                        'height': 80,
+                        'background-image': AWS_ICONS.vpc,
+                        'background-fit': 'contain',
+                        'background-clip': 'none',
+                        'border-color': '#0972d3'
+                    }
+                },
+                {
+                    selector: 'node[type="eks"]',
+                    style: {
+                        'width': 70,
+                        'height': 70,
+                        'background-image': AWS_ICONS.eks,
+                        'background-fit': 'contain',
+                        'background-clip': 'none',
+                        'border-color': '#ff9900'
+                    }
+                },
+                {
+                    selector: 'node[type="nodegroup"]',
+                    style: {
+                        'width': 60,
+                        'height': 60,
+                        'background-image': AWS_ICONS.nodegroup,
+                        'background-fit': 'contain',
+                        'background-clip': 'none',
+                        'border-color': '#00acc1'
+                    }
+                },
+                {
+                    selector: 'node[type="ec2"]',
+                    style: {
+                        'width': 50,
+                        'height': 50,
+                        'background-image': AWS_ICONS.ec2,
+                        'background-fit': 'contain',
+                        'background-clip': 'none'
+                    }
+                },
+                {
+                    selector: 'node[type="pod"]',
+                    style: {
+                        'width': 35,
+                        'height': 35,
+                        'background-color': '#326ce5',
+                        'shape': 'hexagon'
+                    }
+                },
+                {
+                    selector: 'node[type="rds"]',
+                    style: {
+                        'width': 60,
+                        'height': 60,
+                        'background-image': AWS_ICONS.rds,
+                        'background-fit': 'contain',
+                        'background-clip': 'none',
+                        'border-color': '#527fff'
+                    }
+                },
+                {
+                    selector: 'node[type="alb"]',
+                    style: {
+                        'width': 60,
+                        'height': 60,
+                        'background-image': AWS_ICONS.alb,
+                        'background-fit': 'contain',
+                        'background-clip': 'none',
+                        'border-color': '#8c4fff'
+                    }
+                },
+                {
+                    selector: 'node[health="healthy"]',
+                    style: {
+                        'border-color': '#1d8102'
+                    }
+                },
+                {
+                    selector: 'node[health="warning"]',
+                    style: {
+                        'border-color': '#8d6605',
+                        'border-width': 4
+                    }
+                },
+                {
+                    selector: 'node[health="critical"]',
+                    style: {
+                        'border-color': '#d13212',
+                        'border-width': 5
+                    }
+                },
+                {
+                    selector: 'edge',
+                    style: {
+                        'width': 2,
+                        'line-color': '#414d5c',
+                        'target-arrow-color': '#414d5c',
+                        'target-arrow-shape': 'triangle',
+                        'curve-style': 'bezier'
+                    }
+                },
+                {
+                    selector: 'edge[type="ownership"]',
+                    style: {
+                        'line-style': 'solid',
+                        'width': 3,
+                        'line-color': '#0972d3',
+                        'target-arrow-color': '#0972d3'
+                    }
+                },
+                {
+                    selector: 'edge[type="network"]',
+                    style: {
+                        'line-style': 'dashed',
+                        'line-color': '#00acc1',
+                        'target-arrow-color': '#00acc1'
+                    }
+                },
+                {
+                    selector: 'edge[type="dependency"]',
+                    style: {
+                        'line-style': 'dotted',
+                        'line-color': '#8d6605',
+                        'target-arrow-color': '#8d6605'
+                    }
+                },
+                {
+                    selector: ':selected',
+                    style: {
+                        'border-width': 5,
+                        'border-color': '#ff9900'
+                    }
+                }
+            ],
+            layout: {
+                name: 'cose',
+                nodeRepulsion: 8000,
+                idealEdgeLength: 100
+            }
+        });
+
+        console.log('Cytoscape initialized');
+        console.log('Total elements:', cy.elements().length);
+        console.log('Nodes:', cy.nodes().length);
+        console.log('Edges:', cy.edges().length);
+
+        // Event handlers
+        cy.on('tap', 'node', function(evt) {
+            const node = evt.target;
+            showDetails(node.data());
+        });
+
+        function showDetails(data) {
+            const healthClass = data.health === 'healthy' ? 'awsui-status-indicator-success' :
+                              data.health === 'warning' ? 'awsui-status-indicator-warning' :
+                              'awsui-status-indicator-error';
+
+            let detailsHtml = `
+                <div class="awsui-container-inner">
+                    <div class="awsui-container-header">Basic Information</div>
+                    <div class="awsui-key-value-pair">
+                        <span class="awsui-key-value-pair-label">Resource ID:</span>
+                        <span class="awsui-key-value-pair-value">${data.id}</span>
+                    </div>
+                    <div class="awsui-key-value-pair">
+                        <span class="awsui-key-value-pair-label">Type:</span>
+                        <span class="awsui-key-value-pair-value">${data.type.toUpperCase()}</span>
+                    </div>
+                    <div class="awsui-key-value-pair">
+                        <span class="awsui-key-value-pair-label">Health:</span>
+                        <span class="awsui-key-value-pair-value ${healthClass}">● ${data.health.toUpperCase()}</span>
+                    </div>
+                    ${data.namespace ? `
+                    <div class="awsui-key-value-pair">
+                        <span class="awsui-key-value-pair-label">Namespace:</span>
+                        <span class="awsui-key-value-pair-value">${data.namespace}</span>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+
+            if (data.details) {
+                detailsHtml += '<div class="awsui-container-inner"><div class="awsui-container-header">Details</div>';
+                for (const [key, value] of Object.entries(data.details)) {
+                    if (key !== 'cpu' && key !== 'memory') {
+                        detailsHtml += `
+                            <div class="awsui-key-value-pair">
+                                <span class="awsui-key-value-pair-label">${key}:</span>
+                                <span class="awsui-key-value-pair-value">${value}</span>
+                            </div>
+                        `;
+                    }
+                }
+                detailsHtml += '</div>';
+            }
+
+            if (data.details && (data.details.cpu || data.details.memory)) {
+                detailsHtml += '<div class="awsui-container-inner"><div class="awsui-container-header">Performance Metrics</div>';
+
+                if (data.details.cpu) {
+                    const cpuLevel = data.details.cpu > 70 ? 'high' : data.details.cpu > 40 ? 'medium' : 'low';
+                    detailsHtml += `
+                        <div style="margin: 12px 0;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <span style="font-size: 14px; color: var(--color-text-label);">CPU Usage</span>
+                                <span style="font-size: 14px; color: var(--color-text-body-default); font-weight: 700;">${data.details.cpu}%</span>
+                            </div>
+                            <div class="awsui-progress-bar">
+                                <div class="awsui-progress-bar-fill ${cpuLevel}" style="width: ${data.details.cpu}%"></div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                if (data.details.memory) {
+                    const memLevel = data.details.memory > 70 ? 'high' : data.details.memory > 40 ? 'medium' : 'low';
+                    detailsHtml += `
+                        <div style="margin: 12px 0;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                <span style="font-size: 14px; color: var(--color-text-label);">Memory Usage</span>
+                                <span style="font-size: 14px; color: var(--color-text-body-default); font-weight: 700;">${data.details.memory}%</span>
+                            </div>
+                            <div class="awsui-progress-bar">
+                                <div class="awsui-progress-bar-fill ${memLevel}" style="width: ${data.details.memory}%"></div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                detailsHtml += '</div>';
+            }
+
+            document.getElementById('details-panel').innerHTML = detailsHtml;
+        }
+
+        function changeLayout(layoutName) {
+            document.querySelectorAll('.awsui-button-group-buttons .awsui-button').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            const layouts = {
+                hierarchical: { name: 'breadthfirst', directed: true, spacingFactor: 1.5 },
+                concentric: { name: 'concentric', minNodeSpacing: 60 },
+                cose: { name: 'cose', nodeRepulsion: 8000, idealEdgeLength: 100 }
+            };
+
+            cy.layout(layouts[layoutName]).run();
+        }
+
+        function fitGraph() {
+            cy.fit(null, 50);
+        }
+
+        function resetView() {
+            cy.zoom(1);
+            cy.center();
+        }
+
+        // Initial fit
+        cy.ready(function() {
+            cy.fit(null, 50);
+        });
+    </script>
+</body>
+</html>

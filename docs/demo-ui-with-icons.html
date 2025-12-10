@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AirDig SkyGraph - AWS Icons Demo</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+    <script src="https://unpkg.com/layout-base/layout-base.js"></script>
+    <script src="https://unpkg.com/cose-base/cose-base.js"></script>
+    <script src="https://unpkg.com/cytoscape-fcose/cytoscape-fcose.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #f5f7fa;
+        }
+
+        .header {
+            background: #1e293b;
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .header .subtitle {
+            font-size: 0.875rem;
+            color: #94a3b8;
+        }
+
+        .tabs {
+            background: white;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 0 2rem;
+            display: flex;
+            gap: 2rem;
+        }
+
+        .tab {
+            padding: 1rem 0;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            color: #64748b;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            color: #0ea5e9;
+            border-bottom-color: #0ea5e9;
+        }
+
+        .tab:hover {
+            color: #0ea5e9;
+        }
+
+        .container {
+            display: flex;
+            height: calc(100vh - 120px);
+        }
+
+        .sidebar {
+            width: 250px;
+            background: white;
+            border-right: 1px solid #e2e8f0;
+            padding: 1.5rem;
+            overflow-y: auto;
+        }
+
+        .sidebar h3 {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .filter-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .filter-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            cursor: pointer;
+            border-radius: 0.375rem;
+            transition: background 0.2s;
+        }
+
+        .filter-item:hover {
+            background: #f1f5f9;
+        }
+
+        .filter-item input[type="checkbox"] {
+            cursor: pointer;
+        }
+
+        .filter-item label {
+            cursor: pointer;
+            flex: 1;
+        }
+
+        .main-content {
+            flex: 1;
+            position: relative;
+        }
+
+        #cy {
+            width: 100%;
+            height: 100%;
+            background: #fafbfc;
+        }
+
+        .inspector {
+            width: 320px;
+            background: white;
+            border-left: 1px solid #e2e8f0;
+            padding: 1.5rem;
+            overflow-y: auto;
+        }
+
+        .inspector h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 1rem;
+        }
+
+        .inspector .section {
+            margin-bottom: 1.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .inspector .section:last-child {
+            border-bottom: none;
+        }
+
+        .inspector .label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+
+        .inspector .value {
+            font-size: 0.875rem;
+            color: #1e293b;
+            margin-bottom: 0.75rem;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .status-badge.healthy {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status-badge.warning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .status-badge.critical {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .metric-bar {
+            background: #f1f5f9;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 0.25rem;
+        }
+
+        .metric-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #0ea5e9, #06b6d4);
+            transition: width 0.3s;
+        }
+
+        .metric-bar-fill.warning {
+            background: linear-gradient(90deg, #f59e0b, #f97316);
+        }
+
+        .metric-bar-fill.critical {
+            background: linear-gradient(90deg, #ef4444, #dc2626);
+        }
+
+        .event-item {
+            display: flex;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            background: #f8fafc;
+            border-radius: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .event-icon {
+            font-size: 1.25rem;
+        }
+
+        .event-content {
+            flex: 1;
+        }
+
+        .event-title {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #1e293b;
+        }
+
+        .event-time {
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+
+        .controls {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            display: flex;
+            gap: 0.5rem;
+            z-index: 1000;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .btn:hover {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .legend {
+            position: absolute;
+            bottom: 1rem;
+            left: 1rem;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .legend-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 0.75rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-bottom: 0.5rem;
+        }
+
+        .legend-icon {
+            width: 24px;
+            height: 24px;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            box-shadow: 0 10px 15px rgba(0,0,0,0.1);
+            display: none;
+            z-index: 2000;
+        }
+
+        .toast.show {
+            display: block;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div>
+            <h1>AirDig</h1>
+            <div class="subtitle">Cloud Observability Platform - AWS Icons Demo</div>
+        </div>
+        <div>👤 User</div>
+    </div>
+
+    <div class="tabs">
+        <div class="tab active">SkyGraph</div>
+        <div class="tab">DeepDrift</div>
+        <div class="tab">TraceCore</div>
+        <div class="tab">PulseSight</div>
+        <div class="tab">Unified View</div>
+    </div>
+
+    <div class="container">
+        <div class="sidebar">
+            <div class="filter-group">
+                <h3>Resource Types</h3>
+                <div class="filter-item">
+                    <input type="checkbox" id="vpc" checked>
+                    <label for="vpc">🔷 VPC</label>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="subnet" checked>
+                    <label for="subnet">🔶 Subnet</label>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="sg" checked>
+                    <label for="sg">🛡️ Security Group</label>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="ec2" checked>
+                    <label for="ec2">💻 EC2</label>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="rds" checked>
+                    <label for="rds">🗄️ RDS</label>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="lambda" checked>
+                    <label for="lambda">λ Lambda</label>
+                </div>
+            </div>
+
+            <div class="filter-group">
+                <h3>Health Status</h3>
+                <div class="filter-item">
+                    <input type="checkbox" id="healthy" checked>
+                    <label for="healthy">🟢 Healthy (18)</label>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="warning" checked>
+                    <label for="warning">🟡 Warning (4)</label>
+                </div>
+                <div class="filter-item">
+                    <input type="checkbox" id="critical" checked>
+                    <label for="critical">🔴 Critical (1)</label>
+                </div>
+            </div>
+
+            <div class="filter-group">
+                <h3>Layouts</h3>
+                <button class="btn" style="width: 100%; margin-bottom: 0.5rem;" onclick="changeLayout('fcose')">Hierarchical</button>
+                <button class="btn" style="width: 100%; margin-bottom: 0.5rem;" onclick="changeLayout('cose')">Force-Directed</button>
+                <button class="btn" style="width: 100%; margin-bottom: 0.5rem;" onclick="changeLayout('circle')">Circle</button>
+                <button class="btn" style="width: 100%;" onclick="changeLayout('grid')">Grid</button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="controls">
+                <button class="btn" onclick="cy.zoom(cy.zoom() * 1.2)">🔍 Zoom In</button>
+                <button class="btn" onclick="cy.zoom(cy.zoom() * 0.8)">🔎 Zoom Out</button>
+                <button class="btn" onclick="cy.fit(); cy.center();">⟲ Reset View</button>
+                <button class="btn" onclick="exportPNG()">📷 Export PNG</button>
+            </div>
+
+            <div id="cy"></div>
+
+            <div class="legend">
+                <div class="legend-title">AWS Resources</div>
+                <div class="legend-item">
+                    <span class="legend-icon">🔷</span>
+                    <span>VPC</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-icon">🔶</span>
+                    <span>Subnet</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-icon">🛡️</span>
+                    <span>Security Group</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-icon">💻</span>
+                    <span>EC2 Instance</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-icon">🗄️</span>
+                    <span>RDS Database</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-icon">λ</span>
+                    <span>Lambda Function</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="inspector">
+            <h3 id="inspector-title">Resource Details</h3>
+
+            <div class="section" id="inspector-content">
+                <div class="label">Select a resource</div>
+                <div class="value">Click on any node in the graph to view details</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast">
+        <strong>Node Selected</strong>
+        <p id="toast-message"></p>
+    </div>
+
+    <script>
+        // AWS アイコン URL（AWS Architecture Icons）
+        const AWS_ICONS = {
+            vpc: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSI0IiBmaWxsPSIjNEE5MEUyIi8+PHBhdGggZD0iTTI0IDEyTDMyIDI0TDI0IDM2TDE2IDI0TDI0IDEyWiIgZmlsbD0id2hpdGUiLz48L3N2Zz4=',
+            subnet: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSI0IiBmaWxsPSIjRkY5OTAwIi8+PHJlY3QgeD0iMTIiIHk9IjEyIiB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHJ4PSIyIiBmaWxsPSJ3aGl0ZSIvPjwvc3ZnPg==',
+            sg: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSI0IiBmaWxsPSIjREQzNDRDIi8+PHBhdGggZD0iTTI0IDEyTDMyIDIwTDI0IDI4TDE2IDIwTDI0IDEyWiIgZmlsbD0id2hpdGUiLz48cGF0aCBkPSJNMjQgMjBMMzIgMjhMMjQgMzZMMTYgMjhMMjQgMjBaIiBmaWxsPSJ3aGl0ZSIvPjwvc3ZnPg==',
+            ec2: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSI0IiBmaWxsPSIjRkY5OTAwIi8+PHJlY3QgeD0iMTAiIHk9IjE0IiB3aWR0aD0iMjgiIGhlaWdodD0iMjAiIHJ4PSIyIiBmaWxsPSJ3aGl0ZSIvPjxyZWN0IHg9IjE0IiB5PSIxOCIgd2lkdGg9IjIwIiBoZWlnaHQ9IjEyIiBmaWxsPSIjRkY5OTAwIi8+PC9zdmc+',
+            rds: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSI0IiBmaWxsPSIjMzMzRjQ4Ii8+PGNpcmNsZSBjeD0iMjQiIGN5PSIxOCIgcj0iOCIgZmlsbD0id2hpdGUiLz48cmVjdCB4PSIxNiIgeT0iMTgiIHdpZHRoPSIxNiIgaGVpZ2h0PSIxMiIgZmlsbD0id2hpdGUiLz48L3N2Zz4=',
+            lambda: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHJ4PSI0IiBmaWxsPSIjRkY5OTAwIi8+PHRleHQgeD0iNTAlIiB5PSI1NSUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyNCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGRvbWluYW50LWJhc2VsaW5lPSJtaWRkbGUiPsa7PC90ZXh0Pjwvc3ZnPg=='
+        };
+
+        // Cytoscape グラフの初期化
+        const cy = cytoscape({
+            container: document.getElementById('cy'),
+
+            elements: [
+                // ノード
+                { data: { id: 'vpc-1', label: 'VPC-production\n10.0.0.0/16', type: 'vpc', health: 'healthy', icon: '🔷' } },
+
+                { data: { id: 'subnet-1', label: 'Subnet-1a\n10.0.1.0/24', type: 'subnet', health: 'healthy', icon: '🔶' } },
+                { data: { id: 'subnet-2', label: 'Subnet-1b\n10.0.2.0/24', type: 'subnet', health: 'healthy', icon: '🔶' } },
+
+                { data: { id: 'sg-1', label: 'web-sg\nHTTP/HTTPS', type: 'sg', health: 'warning', icon: '🛡️' } },
+                { data: { id: 'sg-2', label: 'db-sg\nPostgreSQL', type: 'sg', health: 'healthy', icon: '🛡️' } },
+
+                { data: { id: 'ec2-1', label: 'web-server-1\nt3.large', type: 'ec2', health: 'warning', icon: '💻' } },
+                { data: { id: 'ec2-2', label: 'api-server-1\nt3.medium', type: 'ec2', health: 'healthy', icon: '💻' } },
+                { data: { id: 'ec2-3', label: 'worker-1\nt3.small', type: 'ec2', health: 'healthy', icon: '💻' } },
+
+                { data: { id: 'rds-1', label: 'postgres-prod\ndb.t3.medium', type: 'rds', health: 'healthy', icon: '🗄️' } },
+
+                { data: { id: 'lambda-1', label: 'api-handler\n512MB', type: 'lambda', health: 'healthy', icon: 'λ' } },
+                { data: { id: 'lambda-2', label: 'processor\n1024MB', type: 'lambda', health: 'healthy', icon: 'λ' } },
+
+                // エッジ
+                { data: { source: 'vpc-1', target: 'subnet-1', type: 'ownership' } },
+                { data: { source: 'vpc-1', target: 'subnet-2', type: 'ownership' } },
+
+                { data: { source: 'subnet-1', target: 'ec2-1', type: 'network' } },
+                { data: { source: 'subnet-1', target: 'ec2-2', type: 'network' } },
+                { data: { source: 'subnet-2', target: 'ec2-3', type: 'network' } },
+
+                { data: { source: 'sg-1', target: 'ec2-1', type: 'security' } },
+                { data: { source: 'sg-1', target: 'ec2-2', type: 'security' } },
+                { data: { source: 'sg-2', target: 'rds-1', type: 'security' } },
+
+                { data: { source: 'ec2-1', target: 'rds-1', type: 'dependency' } },
+                { data: { source: 'ec2-2', target: 'rds-1', type: 'dependency' } },
+                { data: { source: 'ec2-3', target: 'rds-1', type: 'dependency' } },
+
+                { data: { source: 'lambda-1', target: 'rds-1', type: 'dependency' } },
+                { data: { source: 'lambda-2', target: 'rds-1', type: 'dependency' } }
+            ],
+
+            style: [
+                {
+                    selector: 'node',
+                    style: {
+                        'label': 'data(label)',
+                        'text-valign': 'bottom',
+                        'text-halign': 'center',
+                        'text-wrap': 'wrap',
+                        'text-max-width': '100px',
+                        'font-size': '11px',
+                        'font-weight': '500',
+                        'color': '#334155',
+                        'text-margin-y': 5,
+                        'width': 60,
+                        'height': 60,
+                        'border-width': 3,
+                        'border-color': '#cbd5e1',
+                        'background-color': '#ffffff',
+                        'text-background-color': '#ffffff',
+                        'text-background-opacity': 0.8,
+                        'text-background-padding': '3px'
+                    }
+                },
+                {
+                    selector: 'node[icon]',
+                    style: {
+                        'content': 'data(icon)',
+                        'font-size': '32px',
+                        'text-valign': 'center',
+                        'text-halign': 'center'
+                    }
+                },
+                {
+                    selector: 'node[type="vpc"]',
+                    style: {
+                        'background-color': '#527FFF',
+                        'width': 100,
+                        'height': 80,
+                        'shape': 'round-rectangle'
+                    }
+                },
+                {
+                    selector: 'node[type="subnet"]',
+                    style: {
+                        'background-color': '#FF9900',
+                        'width': 80,
+                        'height': 70,
+                        'shape': 'round-rectangle'
+                    }
+                },
+                {
+                    selector: 'node[type="sg"]',
+                    style: {
+                        'background-color': '#DD344C',
+                        'shape': 'round-diamond',
+                        'width': 70,
+                        'height': 70
+                    }
+                },
+                {
+                    selector: 'node[type="ec2"]',
+                    style: {
+                        'background-color': '#FF9900',
+                        'shape': 'round-rectangle'
+                    }
+                },
+                {
+                    selector: 'node[type="rds"]',
+                    style: {
+                        'background-color': '#3B48CC',
+                        'shape': 'round-rectangle'
+                    }
+                },
+                {
+                    selector: 'node[type="lambda"]',
+                    style: {
+                        'background-color': '#FF9900',
+                        'shape': 'round-hexagon'
+                    }
+                },
+                {
+                    selector: 'node[health="healthy"]',
+                    style: {
+                        'border-color': '#22c55e',
+                        'border-width': 4
+                    }
+                },
+                {
+                    selector: 'node[health="warning"]',
+                    style: {
+                        'border-color': '#f59e0b',
+                        'border-width': 5
+                    }
+                },
+                {
+                    selector: 'node[health="critical"]',
+                    style: {
+                        'border-color': '#ef4444',
+                        'border-width': 6
+                    }
+                },
+                {
+                    selector: 'edge',
+                    style: {
+                        'width': 2,
+                        'target-arrow-shape': 'triangle',
+                        'curve-style': 'bezier'
+                    }
+                },
+                {
+                    selector: 'edge[type="ownership"]',
+                    style: {
+                        'line-color': '#64748b',
+                        'target-arrow-color': '#64748b',
+                        'line-style': 'solid',
+                        'width': 3
+                    }
+                },
+                {
+                    selector: 'edge[type="network"]',
+                    style: {
+                        'line-color': '#0ea5e9',
+                        'target-arrow-color': '#0ea5e9',
+                        'line-style': 'dotted',
+                        'width': 2
+                    }
+                },
+                {
+                    selector: 'edge[type="security"]',
+                    style: {
+                        'line-color': '#DD344C',
+                        'target-arrow-color': '#DD344C',
+                        'line-style': 'dashed',
+                        'width': 2
+                    }
+                },
+                {
+                    selector: 'edge[type="dependency"]',
+                    style: {
+                        'line-color': '#8b5cf6',
+                        'target-arrow-color': '#8b5cf6',
+                        'line-style': 'dashed'
+                    }
+                },
+                {
+                    selector: ':selected',
+                    style: {
+                        'border-color': '#0ea5e9',
+                        'border-width': 6,
+                        'overlay-opacity': 0.1,
+                        'overlay-color': '#0ea5e9'
+                    }
+                },
+                {
+                    selector: 'node:active',
+                    style: {
+                        'overlay-opacity': 0.2
+                    }
+                }
+            ],
+
+            layout: {
+                name: 'fcose',
+                quality: 'proof',
+                randomize: false,
+                animate: true,
+                animationDuration: 1000,
+                nodeSeparation: 150,
+                idealEdgeLength: 120,
+                edgeElasticity: 0.45,
+                nestingFactor: 0.1,
+                gravity: 0.25,
+                numIter: 2500,
+                tile: true
+            }
+        });
+
+        // ノードクリック時の処理
+        cy.on('tap', 'node', function(evt){
+            const node = evt.target;
+            const data = node.data();
+
+            // Inspector パネルの更新
+            updateInspector(data);
+
+            // Toast 通知
+            showToast(`Selected: ${data.label.split('\n')[0]}`);
+        });
+
+        // Inspector パネルの更新
+        function updateInspector(data) {
+            const title = document.getElementById('inspector-title');
+            const content = document.getElementById('inspector-content');
+
+            title.textContent = data.label.split('\n')[0];
+
+            const healthColor = data.health === 'healthy' ? 'healthy' :
+                               data.health === 'warning' ? 'warning' : 'critical';
+
+            content.innerHTML = `
+                <div class="section">
+                    <div class="label">Resource ID</div>
+                    <div class="value" style="font-size: 0.75rem; color: #64748b;">${data.id}</div>
+                </div>
+
+                <div class="section">
+                    <div class="label">Type & Status</div>
+                    <div class="value">${data.icon} ${data.type.toUpperCase()}</div>
+                    <div class="value">
+                        <span class="status-badge ${healthColor}">
+                            <span>${data.health === 'healthy' ? '✓' : data.health === 'warning' ? '⚠️' : '⚠️'}</span>
+                            <span>${data.health.charAt(0).toUpperCase() + data.health.slice(1)}</span>
+                        </span>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="label">Connections</div>
+                    <div class="value">Incoming: ${cy.edges('[target="' + data.id + '"]').length}</div>
+                    <div class="value">Outgoing: ${cy.edges('[source="' + data.id + '"]').length}</div>
+                </div>
+
+                <div class="section">
+                    <div class="label">Actions</div>
+                    <button class="btn" style="width: 100%; margin-bottom: 0.5rem;">View in AWS Console</button>
+                    <button class="btn" style="width: 100%; margin-bottom: 0.5rem;">View Metrics</button>
+                    <button class="btn" style="width: 100%;">View Traces</button>
+                </div>
+            `;
+        }
+
+        // Toast 通知
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toast-message');
+
+            toastMessage.textContent = message;
+            toast.classList.add('show');
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // レイアウト変更
+        function changeLayout(layoutName) {
+            const layouts = {
+                fcose: {
+                    name: 'fcose',
+                    quality: 'proof',
+                    randomize: false,
+                    animate: true,
+                    animationDuration: 1000,
+                    nodeSeparation: 150
+                },
+                cose: {
+                    name: 'cose',
+                    animate: true,
+                    animationDuration: 1000,
+                    nodeRepulsion: 400000
+                },
+                circle: {
+                    name: 'circle',
+                    animate: true,
+                    animationDuration: 1000
+                },
+                grid: {
+                    name: 'grid',
+                    animate: true,
+                    animationDuration: 1000,
+                    rows: 3
+                }
+            };
+
+            cy.layout(layouts[layoutName]).run();
+            showToast(`Layout changed to: ${layoutName}`);
+        }
+
+        // PNG エクスポート
+        function exportPNG() {
+            const png = cy.png({
+                full: true,
+                scale: 2,
+                bg: '#ffffff'
+            });
+
+            const link = document.createElement('a');
+            link.href = png;
+            link.download = 'airdig-skygraph-' + Date.now() + '.png';
+            link.click();
+
+            showToast('Graph exported as PNG!');
+        }
+
+        // 初期化時にフィット
+        setTimeout(() => {
+            cy.fit();
+            cy.center();
+        }, 100);
+    </script>
+</body>
+</html>
