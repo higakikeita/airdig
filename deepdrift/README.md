@@ -1,70 +1,245 @@
-# DeepDrift — Infrastructure Drift Detection & Change Intelligence
+# DeepDrift
 
-**DeepDrift** is the second pillar of AirDig. It detects drift between Infrastructure-as-Code (IaC) desired state and actual cloud state, correlates changes with audit logs, and provides impact analysis.
+**Intelligent Terraform Drift Detection with Impact Analysis**
 
----
-
-## Overview
-
-DeepDrift extends the **TFDrift** engine to provide:
-- **Drift detection:** Compare Terraform state vs actual AWS/GCP/Azure resources
-- **Change correlation:** Link drift events to CloudTrail/audit logs
-- **Impact analysis:** Use the SkyGraph dependency graph to predict blast radius
-- **Real-time monitoring:** Continuously watch for configuration drift
-
----
+DeepDrift is a powerful drift detection and impact analysis tool that integrates with [TFDrift-Falco](https://github.com/higakikeita/tfdrift-falco) and [SkyGraph](../skygraph) to provide comprehensive infrastructure drift intelligence.
 
 ## Features
 
-- ✅ **Terraform integration:** Parse `terraform.tfstate` and compare with cloud APIs
-- ✅ **Drift detection:** Identify created, modified, deleted resources
-- ✅ **CloudTrail correlation:** Find who changed what, and when
-- ✅ **Graph-based impact analysis:** Predict which resources are affected
-- ✅ **Event storage:** Store drift events with full before/after state
-- ✅ **CLI tool:** `deepdrift detect` for one-time scans or CI/CD integration
-
----
+- **🔍 Real-time Drift Detection**: Integrates with TFDrift-Falco for CloudTrail-based drift detection
+- **📊 Impact Analysis**: Uses SkyGraph to analyze the blast radius of infrastructure changes
+- **🎯 Root Cause Analysis**: Traces drift back to CloudTrail events and IAM principals
+- **🔐 Security-Aware**: Automatically escalates severity for security-related resource changes
+- **⚡ Continuous Monitoring**: Watch mode for ongoing drift detection
+- **📈 Graph-based Analysis**: BFS traversal to find affected resources (up to 3 hops)
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────┐
-│            DeepDrift Engine                      │
-└─────────────────────────────────────────────────┘
-        │                          │
-        ▼                          ▼
-┌──────────────────┐    ┌──────────────────┐
-│ Terraform State  │    │  Cloud API       │
-│    Parser        │    │  State Fetcher   │
-└──────────────────┘    └──────────────────┘
-        │                          │
-        └──────────┬───────────────┘
-                   ▼
-        ┌──────────────────────────┐
-        │     Diff Engine          │
-        │  (Compare & Generate     │
-        │   Drift Events)          │
-        └──────────────────────────┘
-                   │
-                   ▼
-        ┌──────────────────────────┐
-        │  CloudTrail Correlator   │
-        └──────────────────────────┘
-                   │
-                   ▼
-        ┌──────────────────────────┐
-        │   Impact Analyzer        │
-        │  (Uses SkyGraph)         │
-        └──────────────────────────┘
-                   │
-                   ▼
-        ┌──────────────────────────┐
-        │   TiDB / ClickHouse      │
-        │   (Drift Event Store)    │
-        └──────────────────────────┘
+┌─────────────────┐
+│  Terraform      │
+│  State File     │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐      ┌──────────────┐
+│  TFDrift-Falco  │◄─────│  CloudTrail  │
+│  (External)     │      │  Events      │
+└────────┬────────┘      └──────────────┘
+         │
+         │ JSON Output
+         ▼
+┌─────────────────┐
+│  DeepDrift      │
+│  Adapter        │
+└────────┬────────┘
+         │
+         │ DriftEvent
+         ▼
+┌─────────────────┐      ┌──────────────┐
+│  Impact         │◄─────│  SkyGraph    │
+│  Analyzer       │      │  Graph Data  │
+└────────┬────────┘      └──────────────┘
+         │
+         │ ImpactAnalysisResult
+         ▼
+┌─────────────────┐
+│  CLI Output     │
+│  / JSON Export  │
+└─────────────────┘
 ```
 
----
+## Installation
+
+### Prerequisites
+
+1. **TFDrift-Falco** must be installed and configured:
+   ```bash
+   # Default location: ~/tfdrift-falco/bin/tfdrift
+   # Or specify custom path with --tfdrift flag
+   ```
+
+2. **Go 1.21+** for building from source
+
+### Build
+
+```bash
+# Clone the repository
+git clone https://github.com/higakikeita/airdig.git
+cd airdig/deepdrift
+
+# Build
+make build
+
+# Or install to $GOPATH/bin
+make install
+```
+
+## Usage
+
+### 1. Detect Drift
+
+Detect infrastructure drift using TFDrift-Falco:
+
+```bash
+deepdrift --command detect --state terraform.tfstate
+
+# With custom TFDrift path
+deepdrift --command detect \
+  --state terraform.tfstate \
+  --tfdrift /path/to/tfdrift
+
+# Save output to JSON
+deepdrift --command detect \
+  --state terraform.tfstate \
+  --output drift-events.json
+```
+
+**Example Output:**
+```
+==============================================
+  DeepDrift - Drift Detection & Impact Analysis
+  Version: 0.1.0 (Alpha)
+==============================================
+
+Running drift detection...
+State file: terraform.tfstate
+
+Found 3 drift events
+
+1. [modified] aws:ec2:i-123456 (ec2)
+   Severity: medium
+   User: alice@example.com
+   Event: ModifyInstanceAttribute
+
+2. [deleted] aws:sg:sg-789012 (security_group)
+   Severity: critical
+   User: bob@example.com
+   Event: DeleteSecurityGroup
+
+3. [created] aws:s3:my-bucket (s3)
+   Severity: low
+   User: charlie@example.com
+   Event: CreateBucket
+```
+
+### 2. Impact Analysis
+
+Analyze the impact of drift using SkyGraph:
+
+```bash
+# Generate SkyGraph first
+cd ../skygraph
+./bin/skygraph scan --output graph.json
+
+# Run impact analysis
+cd ../deepdrift
+deepdrift --command impact \
+  --state terraform.tfstate \
+  --graph ../skygraph/graph.json
+
+# Save results
+deepdrift --command impact \
+  --state terraform.tfstate \
+  --graph ../skygraph/graph.json \
+  --output impact-results.json
+```
+
+**Example Output:**
+```
+Running impact analysis...
+Graph file: graph.json
+
+Loaded graph: 42 nodes, 67 edges
+
+Analyzed 3 drift events
+
+1. [modified] aws:ec2:i-123456 (ec2)
+   Severity: medium
+   Affected resources: 5
+   Blast radius: 2 hops
+   Recommendations:
+     • Verify configuration changes against security policies
+     • Apply changes to Terraform code or revert via terraform apply
+
+2. [deleted] aws:sg:sg-789012 (security_group)
+   Severity: critical
+   Affected resources: 12
+   Blast radius: 3 hops
+   Recommendations:
+     • Review if this resource deletion was intentional
+     • Check 12 dependent resources for potential issues
+     • Update Terraform state if deletion is permanent
+```
+
+### 3. Continuous Monitoring
+
+Run continuous drift monitoring:
+
+```bash
+deepdrift --command watch \
+  --state terraform.tfstate \
+  --interval 5m
+
+# Monitor every 30 seconds
+deepdrift --command watch \
+  --state terraform.tfstate \
+  --interval 30s
+```
+
+**Example Output:**
+```
+Starting continuous drift monitoring...
+Interval: 5m0s
+
+[2025-12-14T18:00:00+09:00] Detected 0 drift events
+
+[2025-12-14T18:05:00+09:00] Detected 1 drift events
+  - [modified] aws:ec2:i-123456 (ec2)
+
+[2025-12-14T18:10:00+09:00] Detected 0 drift events
+```
+
+## Configuration
+
+### Command-Line Flags
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--command` | Command to run: detect, impact, watch | `detect` |
+| `--state` | Terraform state file path | `terraform.tfstate` |
+| `--graph` | SkyGraph JSON file path (required for impact) | - |
+| `--tfdrift` | TFDrift binary path | `~/tfdrift-falco/bin/tfdrift` |
+| `--config` | TFDrift config file path | - |
+| `--output` | Output file path | stdout |
+| `--interval` | Watch interval for continuous monitoring | `5m` |
+
+### TFDrift Configuration
+
+DeepDrift uses TFDrift-Falco's configuration. Create a config file:
+
+```yaml
+# tfdrift-config.yaml
+cloudtrail:
+  region: us-west-2
+  lookback_minutes: 60
+
+filters:
+  resource_types:
+    - ec2
+    - security_group
+    - vpc
+    - rds
+    - s3
+    - lambda
+```
+
+Then run:
+```bash
+deepdrift --command detect \
+  --state terraform.tfstate \
+  --config tfdrift-config.yaml
+```
 
 ## Data Model
 
@@ -72,255 +247,218 @@ DeepDrift extends the **TFDrift** engine to provide:
 
 ```go
 type DriftEvent struct {
-    ID           string            // Unique event ID
-    ResourceID   string            // Resource identifier (e.g., "aws:ec2:i-123456")
-    Type         DriftType         // created, modified, deleted
-    Timestamp    time.Time
-    Before       map[string]any    // State before change
-    After        map[string]any    // State after change
-    Diff         map[string]any    // Detailed diff
-    RootCause    string            // CloudTrail event ID or user
-    ImpactedEdges []string         // List of affected graph edges
+    ID                string                 // Unique event ID
+    ResourceID        string                 // e.g., "aws:ec2:i-123456"
+    ResourceType      string                 // e.g., "ec2", "security_group"
+    Type              DriftType              // created, modified, deleted
+    Timestamp         time.Time              // When drift was detected
+    Before            map[string]interface{} // State before change
+    After             map[string]interface{} // State after change
+    Diff              map[string]interface{} // Detailed diff
+    RootCause         *RootCause             // CloudTrail event info
+    ImpactedResources []string               // List of affected resources
+    Severity          Severity               // low, medium, high, critical
 }
-
-type DriftType string
-
-const (
-    DriftCreated  DriftType = "created"
-    DriftModified DriftType = "modified"
-    DriftDeleted  DriftType = "deleted"
-)
 ```
 
----
+### ImpactAnalysisResult
 
-## Usage
+```go
+type ImpactAnalysisResult struct {
+    DriftEventID          string             // Original drift event ID
+    AffectedResourceCount int                // Number of affected resources
+    AffectedResources     []AffectedResource // Detailed impact information
+    BlastRadius           int                // Maximum graph distance (hops)
+    Recommendations       []string           // Suggested actions
+    Severity              Severity           // Overall severity
+}
+```
 
-### Installation
+## Impact Analysis Algorithm
+
+DeepDrift uses **Breadth-First Search (BFS)** to traverse the SkyGraph and find affected resources:
+
+1. **Start Node**: The resource with drift
+2. **Traversal**: BFS up to 3 hops from the start node
+3. **Relationship Types**:
+   - `network`: Network connectivity (VPC, Subnet, Security Group)
+   - `dependency`: Service dependencies (EC2 → RDS, Lambda → DynamoDB)
+   - `ownership`: Parent-child relationships (VPC → Subnet)
+
+4. **Severity Calculation**:
+   - Base severity from drift type and resource type
+   - Escalated if >10 resources affected
+   - Escalated if security resources affected (IAM, KMS, Security Groups)
+
+## Examples
+
+### Example 1: Detect and Analyze Deleted Security Group
 
 ```bash
-go install github.com/yourusername/airdig/deepdrift/cmd/deepdrift@latest
+# 1. Detect drift
+deepdrift --command detect --state terraform.tfstate --output drift.json
+
+# 2. Analyze impact
+deepdrift --command impact \
+  --state terraform.tfstate \
+  --graph graph.json \
+  --output impact.json
+
+# 3. Review results
+cat impact.json | jq '.[] | select(.severity == "critical")'
 ```
 
-### Detect Drift
+### Example 2: Continuous Monitoring with Alerts
 
 ```bash
-# Compare Terraform state with AWS
-deepdrift detect --state terraform.tfstate --provider aws
+# Monitor every minute and save to log
+deepdrift --command watch \
+  --state terraform.tfstate \
+  --interval 1m \
+  >> drift-monitor.log 2>&1 &
 
-# Specify region
-deepdrift detect --state terraform.tfstate --provider aws --region us-east-1
-
-# Output to JSON
-deepdrift detect --state terraform.tfstate --provider aws --output drift.json
-
-# Continuous monitoring (daemon mode)
-deepdrift watch --state terraform.tfstate --provider aws --interval 5m
+# Monitor the log
+tail -f drift-monitor.log
 ```
 
-### CloudTrail Correlation
+## Integration with CI/CD
 
-```bash
-# Correlate drift with CloudTrail events
-deepdrift correlate --drift-file drift.json --cloudtrail-log events.json
-```
-
-### Impact Analysis
-
-```bash
-# Analyze impact of drift (requires SkyGraph)
-deepdrift impact --drift-file drift.json --graph skygraph.json
-```
-
----
-
-## Configuration
+### GitHub Actions
 
 ```yaml
-# deepdrift.yaml
-terraform:
-  state_file: ./terraform.tfstate
-  backend: s3  # or local, remote
+name: Drift Detection
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours
 
-provider:
-  name: aws
-  region: us-east-1
+jobs:
+  detect-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
 
-cloudtrail:
-  enabled: true
-  bucket: my-cloudtrail-bucket
-  prefix: AWSLogs/
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
 
-storage:
-  type: tidb
-  dsn: "root@tcp(localhost:4000)/airdig"
+      - name: Install TFDrift
+        run: |
+          # Install TFDrift-Falco
+          wget https://github.com/higakikeita/tfdrift-falco/releases/download/v1.0.0/tfdrift-linux-amd64
+          chmod +x tfdrift-linux-amd64
+          sudo mv tfdrift-linux-amd64 /usr/local/bin/tfdrift
 
-monitoring:
-  interval: 5m  # Check every 5 minutes
-  alerts:
-    slack: https://hooks.slack.com/...
+      - name: Install DeepDrift
+        run: |
+          cd deepdrift
+          make install
+
+      - name: Run Drift Detection
+        run: |
+          deepdrift --command detect \
+            --state terraform.tfstate \
+            --output drift-report.json
+
+      - name: Upload Results
+        uses: actions/upload-artifact@v3
+        with:
+          name: drift-report
+          path: drift-report.json
 ```
-
-Run with config:
-
-```bash
-deepdrift detect --config deepdrift.yaml
-```
-
----
-
-## Integration with TFDrift
-
-DeepDrift is built on top of the existing **TFDrift** project. It extends TFDrift with:
-
-1. **CloudTrail correlation:** Link drift to audit logs
-2. **Graph integration:** Use SkyGraph for impact analysis
-3. **Event storage:** Persist drift events in TiDB
-4. **Real-time monitoring:** Continuous drift detection
-
-**Migration from TFDrift:**
-
-If you're already using TFDrift, DeepDrift is a drop-in replacement with additional features. Simply replace `tfdrift` with `deepdrift` in your commands.
-
----
-
-## Example: Drift Detection Flow
-
-### 1. Detect Drift
-
-```bash
-$ deepdrift detect --state terraform.tfstate --provider aws
-```
-
-**Output:**
-
-```
-Found 3 drift events:
-
-1. [MODIFIED] aws_security_group.web (sg-123456)
-   - ingress rule added: 0.0.0.0/0:22
-   - Detected at: 2024-01-15 14:32:18 UTC
-
-2. [DELETED] aws_instance.worker (i-789012)
-   - Instance terminated outside Terraform
-   - Detected at: 2024-01-15 14:35:42 UTC
-
-3. [CREATED] aws_s3_bucket.logs (my-logs-bucket)
-   - Bucket created manually
-   - Detected at: 2024-01-15 14:40:11 UTC
-```
-
-### 2. Correlate with CloudTrail
-
-```bash
-$ deepdrift correlate --drift-file drift.json
-```
-
-**Output:**
-
-```
-Correlation results:
-
-1. sg-123456 (security group modified)
-   - CloudTrail Event: AuthorizeSecurityGroupIngress
-   - User: john.doe@example.com
-   - Time: 2024-01-15 14:32:17 UTC
-   - Source IP: 203.0.113.5
-
-2. i-789012 (instance terminated)
-   - CloudTrail Event: TerminateInstances
-   - User: automation-role
-   - Time: 2024-01-15 14:35:41 UTC
-
-3. my-logs-bucket (bucket created)
-   - CloudTrail Event: CreateBucket
-   - User: admin@example.com
-   - Time: 2024-01-15 14:40:10 UTC
-```
-
-### 3. Impact Analysis
-
-```bash
-$ deepdrift impact --drift-file drift.json --graph skygraph.json
-```
-
-**Output:**
-
-```
-Impact analysis:
-
-1. sg-123456 (security group modified)
-   - Affects: 5 EC2 instances
-   - Risk: HIGH (port 22 opened to 0.0.0.0/0)
-   - Recommendation: Restrict SSH access to specific IPs
-
-2. i-789012 (instance terminated)
-   - Affects: 1 load balancer (target group)
-   - Risk: MEDIUM (reduced capacity)
-
-3. my-logs-bucket (bucket created)
-   - No dependencies found
-   - Risk: LOW
-```
-
----
 
 ## Development
 
-### Prerequisites
+### Project Structure
 
-- Go 1.21+
-- Terraform
-- AWS credentials configured
-
-### Build
-
-```bash
-cd deepdrift
-go build -o bin/deepdrift ./cmd/deepdrift
+```
+deepdrift/
+├── cmd/
+│   └── deepdrift/          # CLI entry point
+│       └── main.go
+├── pkg/
+│   ├── types/              # Core data types
+│   │   └── drift.go
+│   ├── tfdrift/            # TFDrift adapter
+│   │   └── adapter.go
+│   └── impact/             # Impact analysis engine
+│       └── analyzer.go
+├── go.mod
+├── Makefile
+└── README.md
 ```
 
-### Test
+### Run Tests
 
 ```bash
-go test ./...
+# Run all tests
+make test
+
+# Run with coverage
+make test-coverage
+
+# Format code
+make fmt
+
+# Run linter
+make lint
 ```
 
----
+### Add New Features
+
+1. **Custom Severity Rules**: Extend `calculateSeverity()` in `pkg/tfdrift/adapter.go`
+2. **New Recommendations**: Modify `generateRecommendations()` in `pkg/impact/analyzer.go`
+3. **Custom Graph Traversal**: Adjust `findAffectedResources()` in `pkg/impact/analyzer.go`
 
 ## Roadmap
 
-### v0.1.0 (Current)
-- [ ] Terraform state parser
-- [ ] AWS drift detection
-- [ ] Diff engine
-- [ ] JSON export
-- [ ] CLI tool
+### v0.1.0 (Current - Alpha)
+- ✅ TFDrift-Falco adapter
+- ✅ SkyGraph integration for impact analysis
+- ✅ CLI with detect/impact/watch commands
+- ✅ CloudTrail root cause analysis
+- ✅ BFS-based impact traversal
 
-### v0.2.0
-- [ ] CloudTrail correlation
-- [ ] Impact analysis (SkyGraph integration)
-- [ ] Event storage (TiDB)
-- [ ] Continuous monitoring mode
+### v0.2.0 (Q1 2025)
+- [ ] Support for Azure and GCP
+- [ ] Persistent storage (TiDB/ClickHouse)
+- [ ] Web UI for visualization
+- [ ] Slack/Teams notifications
+- [ ] Custom policy engine
 
-### v0.3.0
-- [ ] GCP/Azure support
-- [ ] Slack/PagerDuty alerting
-- [ ] GraphQL query API
-- [ ] Web UI integration
+### v0.3.0 (Q2 2025)
+- [ ] Machine learning-based anomaly detection
+- [ ] Drift prediction
+- [ ] Auto-remediation workflows
+- [ ] Integration with Terraform Cloud
 
----
+## Integration with TFDrift
+
+DeepDrift is built on top of the existing **TFDrift-Falco** project. It extends TFDrift with:
+
+1. **CloudTrail correlation**: Link drift to audit logs (via TFDrift)
+2. **Graph integration**: Use SkyGraph for impact analysis
+3. **Severity calculation**: Security-aware risk assessment
+4. **Real-time monitoring**: Continuous drift detection
+
+**TFDrift-Falco** handles the core drift detection logic, while **DeepDrift** adds the intelligence layer on top.
 
 ## Contributing
 
-See [CONTRIBUTING.md](../CONTRIBUTING.md) for development guidelines.
-
----
+Contributions are welcome! Please see [CONTRIBUTING.md](../CONTRIBUTING.md) for details.
 
 ## License
 
-Apache License 2.0 — see [LICENSE](../LICENSE)
+Apache License 2.0 - See [LICENSE](../LICENSE) for details.
 
----
+## Related Projects
 
-**DeepDrift** is part of the [AirDig](https://github.com/yourusername/airdig) project.
+- **[SkyGraph](../skygraph)**: Cloud resource graph builder
+- **[TFDrift-Falco](https://github.com/higakikeita/tfdrift-falco)**: CloudTrail-based drift detection
+- **[Airdig](https://github.com/higakikeita/airdig)**: Next-generation cloud observability platform
+
+## Support
+
+- GitHub Issues: https://github.com/higakikeita/airdig/issues
+- Documentation: https://github.com/higakikeita/airdig/wiki
+- Twitter: @higakikeita
