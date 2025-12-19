@@ -1,0 +1,45 @@
+# Binaries
+tracecore
+tracecli
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output of go coverage tool
+*.out
+
+# Go workspace file
+go.work
+
+# Dependency directories
+vendor/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+
+# Logs
+*.log
+
+# Node (UI)
+ui/node_modules/
+ui/dist/
+ui/.vite/
+
+# ClickHouse data
+data/
