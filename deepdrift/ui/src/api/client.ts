@@ -47,10 +47,24 @@ export interface HighImpactDrift {
   severity: string;
 }
 
+export interface Resource {
+  id: string;
+  type: string;
+  provider: string;
+  region: string;
+  name: string;
+  metadata: Record<string, any>;
+  tags: Record<string, string> | null;
+  created_at: string;
+  updated_at: string;
+}
+
 class APIClient {
   private client: AxiosInstance;
 
-  constructor(baseURL: string = 'http://localhost:8080') {
+  constructor(baseURL: string = '') {
+    // Use empty baseURL for relative paths (works with Vite proxy in dev mode)
+    // In production, it will use the same origin as the UI
     this.client = axios.create({
       baseURL,
       timeout: 10000,
@@ -125,6 +139,28 @@ class APIClient {
     const response = await this.client.get('/api/v1/impact/high', {
       params: { days, limit },
     });
+    return response.data;
+  }
+
+  // Resources
+  async listResources(params?: {
+    limit?: number;
+    type?: string;
+    provider?: string;
+    region?: string;
+  }): Promise<{ resources: Resource[]; count: number; total: number }> {
+    const response = await this.client.get('/api/v1/resources', { params });
+    return response.data;
+  }
+
+  // Graph
+  async getGraph(): Promise<{ nodes: any[]; edges: any[] }> {
+    const response = await this.client.get('/api/v1/graph');
+    return response.data;
+  }
+
+  async getIntendedGraph(): Promise<{ nodes: any[]; edges: any[] }> {
+    const response = await this.client.get('/api/v1/graph/intended');
     return response.data;
   }
 }

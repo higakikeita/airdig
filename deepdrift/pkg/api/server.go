@@ -49,8 +49,13 @@ func NewServer(config *Config, chClient *clickhouse.Client) *Server {
 		config = DefaultConfig()
 	}
 
-	driftStore := clickhouse.NewDriftStore(chClient)
-	impactStore := clickhouse.NewImpactStore(chClient)
+	// Only create stores if ClickHouse client is provided
+	var driftStore *clickhouse.DriftStore
+	var impactStore *clickhouse.ImpactStore
+	if chClient != nil {
+		driftStore = clickhouse.NewDriftStore(chClient)
+		impactStore = clickhouse.NewImpactStore(chClient)
+	}
 
 	s := &Server{
 		addr:        fmt.Sprintf("%s:%d", config.Host, config.Port),
@@ -93,10 +98,14 @@ func (s *Server) registerRoutes(config *Config) {
 
 	// Resource graph
 	s.mux.HandleFunc("/api/v1/graph", s.handleGraph())
+	s.mux.HandleFunc("/api/v1/graph/intended", s.handleIntendedGraph())
+
+	// Resources
+	s.mux.HandleFunc("/api/v1/resources", s.handleResources())
 
 	// Static files (for React UI)
-	fs := http.FileServer(http.Dir("./ui/build"))
-	s.mux.Handle("/", fs)
+	fs := http.FileServer(http.Dir("./ui/dist"))
+	s.mux.Handle("/ui/", http.StripPrefix("/ui/", fs))
 
 	// Apply CORS middleware if enabled
 	if config.EnableCORS {

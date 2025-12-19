@@ -1,208 +1,195 @@
 import React, { useEffect, useState } from 'react';
-import ReactFlow, {
-  Controls,
-  Background,
-  useNodesState,
-  useEdgesState,
-  MarkerType,
-} from 'reactflow';
-import type { Node, Edge } from 'reactflow';
-import 'reactflow/dist/style.css';
+import apiClient from '../api/client';
+import type { GraphNode, ResourceGraphData } from './graph/graphUtils';
+import { filterImportantResources } from './graph/graphUtils';
+import CytoscapeGraph from './cytoscape/CytoscapeGraph';
+import type { LayoutMode } from './cytoscape/CytoscapeGraph';
 
-interface GraphNode {
-  id: string;
-  type: string;
-  provider: string;
-  region: string;
-  name: string;
-  metadata?: Record<string, any>;
-  tags?: Record<string, string>;
-}
+type ViewMode = 'force' | 'hierarchical' | 'grid' | 'circle' | 'layers';
+type DataSource = 'actual' | 'intended';
 
-interface GraphEdge {
-  from: string;
-  to: string;
-  type: string;
-  metadata?: Record<string, any>;
-}
-
-interface ResourceGraphData {
-  nodes: GraphNode[];
-  edges: GraphEdge[];
-}
-
-// AWS Official Icons from aws-icons-for-plantuml
-const AWS_ICONS_BASE = 'https://raw.githubusercontent.com/awslabs/aws-icons-for-plantuml/main/dist';
-
-const AWS_ICONS: Record<string, string> = {
-  vpc: `${AWS_ICONS_BASE}/Networking/VPC.png`,
-  subnet: `${AWS_ICONS_BASE}/Networking/VPCSubnet.png`,
-  security_group: `${AWS_ICONS_BASE}/SecurityIdentityCompliance/VPCSecurityGroup.png`,
-  ec2: `${AWS_ICONS_BASE}/Compute/EC2.png`,
-  rds: `${AWS_ICONS_BASE}/Database/RDS.png`,
-  elb: `${AWS_ICONS_BASE}/NetworkingContentDelivery/ElasticLoadBalancing.png`,
-  lambda: `${AWS_ICONS_BASE}/Compute/Lambda.png`,
-  s3: `${AWS_ICONS_BASE}/Storage/SimpleStorageService.png`,
-  cloudwatch: `${AWS_ICONS_BASE}/ManagementGovernance/CloudWatch.png`,
-  iam: `${AWS_ICONS_BASE}/SecurityIdentityCompliance/IAM.png`,
-};
-
-const getNodeIcon = (type: string) => {
-  const iconUrl = AWS_ICONS[type] || AWS_ICONS.ec2;
-  return (
-    <img
-      src={iconUrl}
-      alt={type}
-      style={{ width: '32px', height: '32px', objectFit: 'contain' }}
-    />
-  );
-};
-
-const getNodeColor = (type: string) => {
-  // AWS brand colors and service-specific colors
-  const colors: Record<string, string> = {
-    vpc: '#527FFF', // AWS VPC Blue
-    subnet: '#7AA116', // AWS Networking Green
-    security_group: '#DD344C', // AWS Security Red
-    ec2: '#FF9900', // AWS Orange
-    rds: '#527FFF', // AWS Database Blue
-    elb: '#8C4FFF', // AWS Network Purple
-    lambda: '#FF9900', // AWS Compute Orange
-    s3: '#569A31', // AWS Storage Green
-    default: '#232F3E', // AWS Dark
-  };
-  return colors[type] || colors.default;
-};
-
-const CustomNode: React.FC<{ data: any }> = ({ data }) => {
-  const color = getNodeColor(data.type);
-
-  return (
-    <div
-      style={{
-        padding: '12px 16px',
-        borderRadius: '8px',
-        border: `2px solid ${color}`,
-        backgroundColor: '#1e293b',
-        minWidth: '180px',
-        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.3)',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-        <div style={{ color }}>{getNodeIcon(data.type)}</div>
-        <div style={{ fontWeight: 600, fontSize: '14px', color: 'white' }}>{data.label}</div>
-      </div>
-      <div style={{ fontSize: '11px', color: '#94a3b8' }}>{data.type}</div>
-      {data.region && (
-        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '4px' }}>
-          {data.provider}:{data.region}
-        </div>
-      )}
-    </div>
-  );
-};
-
-const nodeTypes = {
-  custom: CustomNode,
+const viewModeToLayout: Record<ViewMode, LayoutMode> = {
+  force: 'cose',
+  hierarchical: 'concentric',
+  grid: 'grid',
+  circle: 'circle',
+  layers: 'layers',
 };
 
 export const ResourceGraph: React.FC = () => {
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({ total: 0, filtered: 0 });
+  const [viewMode, setViewMode] = useState<ViewMode>('force');
+  const [dataSource, setDataSource] = useState<DataSource>('actual');
+  const [rawData, setRawData] = useState<ResourceGraphData>({ nodes: [], edges: [] });
+  const [intendedData, setIntendedData] = useState<ResourceGraphData>({ nodes: [], edges: [] });
+  const [displayNodes, setDisplayNodes] = useState<GraphNode[]>([]);
 
   useEffect(() => {
-    loadGraphData();
+    fetchGraphData();
   }, []);
 
-  const loadGraphData = async () => {
+  useEffect(() => {
+    const currentData = dataSource === 'actual' ? rawData : intendedData;
+    const filteredNodes = filterImportantResources(currentData.nodes);
+    setStats({ total: currentData.nodes.length, filtered: filteredNodes.length });
+    setDisplayNodes(filteredNodes);
+  }, [rawData, intendedData, dataSource]);
+
+  const fetchGraphData = async () => {
     try {
-      const response = await fetch('http://localhost:8080/api/v1/graph');
-      const data: ResourceGraphData = await response.json();
-
-      // Convert to React Flow format
-      const flowNodes: Node[] = data.nodes.map((node, index) => ({
-        id: node.id,
-        type: 'custom',
-        position: calculatePosition(index, data.nodes.length),
-        data: {
-          label: node.name,
-          type: node.type,
-          provider: node.provider,
-          region: node.region,
-          metadata: node.metadata,
-          tags: node.tags,
-        },
-      }));
-
-      const flowEdges: Edge[] = data.edges.map((edge, index) => ({
-        id: `e-${index}`,
-        source: edge.from,
-        target: edge.to,
-        type: 'smoothstep',
-        animated: edge.type === 'dependency',
-        label: edge.type,
-        labelStyle: { fill: '#94a3b8', fontSize: 10 },
-        labelBgStyle: { fill: '#0f172a' },
-        style: { stroke: getEdgeColor(edge.type), strokeWidth: 2 },
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          color: getEdgeColor(edge.type),
-        },
-      }));
-
-      setNodes(flowNodes);
-      setEdges(flowEdges);
-      setLoading(false);
+      setLoading(true);
+      const [actualGraph, intendedGraph] = await Promise.all([
+        apiClient.getGraph(),
+        apiClient.getIntendedGraph(),
+      ]);
+      setRawData(actualGraph);
+      setIntendedData(intendedGraph);
     } catch (error) {
-      console.error('Failed to load graph data:', error);
+      console.error('Failed to fetch graph:', error);
+    } finally {
       setLoading(false);
     }
   };
 
-  const calculatePosition = (index: number, total: number) => {
-    // Simple circular layout
-    const radius = 250;
-    const angle = (2 * Math.PI * index) / total;
-    return {
-      x: 400 + radius * Math.cos(angle),
-      y: 300 + radius * Math.sin(angle),
-    };
-  };
-
-  const getEdgeColor = (type: string) => {
-    const colors: Record<string, string> = {
-      ownership: '#8b5cf6',
-      network: '#06b6d4',
-      dependency: '#f59e0b',
-      default: '#475569',
-    };
-    return colors[type] || colors.default;
+  const handleNodeClick = (node: GraphNode) => {
+    console.log('Node clicked:', node);
   };
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '600px', color: 'white' }}>
-        Loading graph...
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100%',
+          fontSize: '16px',
+          color: '#94a3b8',
+          background: '#0f1b2a',
+        }}
+      >
+        読み込み中...
       </div>
     );
   }
 
   return (
-    <div style={{ height: '600px', backgroundColor: '#0f172a', borderRadius: '12px', overflow: 'hidden' }}>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        nodeTypes={nodeTypes}
-        fitView
-        attributionPosition="bottom-left"
-        style={{ background: '#0f172a' }}
+    <div style={{ width: '100%', height: '100%', position: 'relative', background: '#0f1b2a' }}>
+      {/* Compact Header */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: '50px',
+          background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+          borderBottom: '2px solid #ff9900',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '0 20px',
+          zIndex: 10,
+          backdropFilter: 'blur(10px)',
+        }}
       >
-        <Background color="#1e293b" gap={16} />
-        <Controls />
-      </ReactFlow>
+        {/* Left: Title & Stats */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <div style={{ fontSize: '16px', fontWeight: 700, color: 'white', letterSpacing: '0.5px' }}>
+            ⚡ AirDig <span style={{ color: '#ff9900' }}>DeepDrift</span>
+          </div>
+          <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: '#94a3b8' }}>
+            <div>
+              全体: <span style={{ color: 'white', fontWeight: 600 }}>{stats.total}</span>
+            </div>
+            <div>
+              表示: <span style={{ color: '#10b981', fontWeight: 600 }}>{stats.filtered}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Center: Data Source Toggle */}
+        <div
+          style={{
+            display: 'flex',
+            gap: '4px',
+            backgroundColor: '#1e293b',
+            borderRadius: '6px',
+            padding: '3px',
+          }}
+        >
+          {[
+            { source: 'actual' as DataSource, label: 'AWS実環境', icon: '☁️' },
+            { source: 'intended' as DataSource, label: 'Terraform', icon: '📝' },
+          ].map((tab) => (
+            <button
+              key={tab.source}
+              onClick={() => setDataSource(tab.source)}
+              style={{
+                padding: '6px 14px',
+                fontSize: '12px',
+                fontWeight: 500,
+                color: dataSource === tab.source ? 'white' : '#94a3b8',
+                backgroundColor: dataSource === tab.source ? '#0ea5e9' : 'transparent',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+            >
+              {tab.icon} {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Right: View Mode Tabs */}
+        <div
+          style={{
+            display: 'flex',
+            gap: '4px',
+            backgroundColor: '#1e293b',
+            borderRadius: '6px',
+            padding: '3px',
+          }}
+        >
+          {[
+            { mode: 'force' as ViewMode, label: '力学', icon: '🌀' },
+            { mode: 'hierarchical' as ViewMode, label: '階層', icon: '🏗️' },
+            { mode: 'layers' as ViewMode, label: 'レイヤー', icon: '📊' },
+            { mode: 'grid' as ViewMode, label: 'グリッド', icon: '⊞' },
+            { mode: 'circle' as ViewMode, label: '円形', icon: '○' },
+          ].map((tab) => (
+            <button
+              key={tab.mode}
+              onClick={() => setViewMode(tab.mode)}
+              style={{
+                padding: '6px 12px',
+                fontSize: '12px',
+                fontWeight: 500,
+                color: viewMode === tab.mode ? 'white' : '#94a3b8',
+                backgroundColor: viewMode === tab.mode ? '#f59e0b' : 'transparent',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+            >
+              {tab.icon} {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Graph Canvas */}
+      <div style={{ width: '100%', height: '100%', paddingTop: '50px' }}>
+        <CytoscapeGraph
+          nodes={displayNodes}
+          edges={[]}
+          layoutMode={viewModeToLayout[viewMode]}
+          onNodeClick={handleNodeClick}
+        />
+      </div>
     </div>
   );
 };
